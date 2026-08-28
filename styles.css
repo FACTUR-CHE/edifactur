@@ -83,14 +83,15 @@
   --warning-ink: var(--amber-800);
   --warning-surface: var(--amber-050);
 
-  /* -- Schrift ------------------------------------------------------------ */
-  /* Bahnschrift ist Windows-only; die Kette faellt ueber DIN Alternate
-     (macOS) und Roboto (Android/Linux) auf system-ui zurueck. Fuer eine
-     plattformgleiche Darstellung muesste eine Webfont-Datei mitgeliefert
-     werden -- siehe README. */
+  /* -- Schrift ------------------------------------------------------------
+   * Bahnschrift ist Windows-only; die Kette faellt ueber DIN Alternate
+   * (macOS) und Roboto (Android/Linux) auf system-ui zurueck. Fuer eine
+   * plattformgleiche Darstellung muesste eine Webfont-Datei mitgeliefert
+   * werden -- siehe README.
+   */
   --font-sans:
-    'Bahnschrift', 'DIN Alternate', 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+    'Bahnschrift', 'DIN Alternate', 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', 'Liberation Mono', monospace;
 
   /* -- Abstaende ---------------------------------------------------------- */
   --pad-masthead: clamp(20px, 11vw, 165px);
@@ -314,12 +315,12 @@ pre {
   background: var(--control-hover);
 }
 
-.button--compact {
+.button-compact {
   padding: 7px 10px;
   font-size: 13px;
 }
 
-.button--quiet {
+.button-quiet {
   padding: 8px 12px;
   font-size: 14px;
 }
@@ -363,7 +364,7 @@ pre {
 }
 
 .notice[data-variant='error'],
-.notice--error {
+.notice-error {
   border-color: var(--danger-ink);
   background: var(--danger-surface);
   color: var(--danger-ink);
@@ -506,6 +507,7 @@ pre {
   justify-content: space-between;
   gap: 10px;
   padding: 12px 16px;
+
   /* Trennlinie zwischen Liste und Pager, nicht darunter. */
   border-block-start: 1px solid var(--line);
   background: var(--surface-sunken);
@@ -576,7 +578,7 @@ pre {
 
 .meta dd {
   margin: 3px 0 0;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* -- Tabs ---------------------------------------------------------------- */
@@ -662,7 +664,7 @@ pre {
   padding: 2px 5px;
   background: var(--value-surface);
   font: 400 12px var(--font-mono);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 mark {
@@ -840,7 +842,7 @@ dialog::backdrop {
 
 /* == 6. Media Queries ===================================================== */
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
   /* Gestapeltes Layout: hier scrollt das Dokument, nicht die einzelne Spalte. */
   body {
     block-size: auto;

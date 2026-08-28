@@ -174,7 +174,7 @@
 
     return ns.el('nav', { class: 'pager', 'aria-label': 'Seitennavigation' }, [
       ns.el('button', {
-        class: 'button button--compact',
+        class: 'button button-compact',
         type: 'button',
         dataset: { page: 'previous' },
         disabled: page === 0,
@@ -182,7 +182,7 @@
       }),
       ns.el('span', { text: range }),
       ns.el('button', {
-        class: 'button button--compact',
+        class: 'button button-compact',
         type: 'button',
         dataset: { page: 'next' },
         disabled: page >= pages - 1,
