@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDIFACT Explorer</title>
+  <style>
+    :root { --ink:#252a31; --muted:#71808e; --paper:#f6f8fa; --card:#fff; --line:#d4e0e9; --blue:#00558f; --blue-deep:#004b80; --blue-soft:#adc7dd; --blue-pale:#eaf2f8; --accent:#0072bc; --teal:#00558f; --warn:#f2b84b; }
+    * { box-sizing:border-box; }
+    html,body { height:100%; }
+    body { margin:0; overflow:hidden; color:var(--ink); background:linear-gradient(120deg,#f5f8fa,#fff 34%,#eef4f8); font:16px/1.45 'Bahnschrift','Segoe UI',sans-serif; }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    .masthead { min-height:132px; padding:20px clamp(20px,11vw,165px) 0; display:flex; align-items:center; justify-content:space-between; gap:24px; border-bottom:60px solid var(--blue); background:#fff; position:relative; }
+    .masthead::after { content:'EDIFACT Explorer'; position:absolute; left:clamp(20px,11vw,165px); bottom:-41px; color:#fff; font:300 21px/1 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:.04em; }
+    h1 { margin:0; font:700 clamp(28px,4vw,48px)/1.05 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:-.04em; }
+    .brand { position:relative; padding:2px 52px 10px 0; }
+    .brand-name { color:#41454b; font:300 49px/1 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:.045em; }
+    .brand-tagline { margin:2px 0 0 91px; color:#50555c; font:300 16px/1 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:.06em; }
+    .brand-tagline span { color:var(--accent); }
+    .brand-mark { position:absolute; top:0; right:7px; width:31px; height:42px; background:linear-gradient(135deg,#95bbd6 0 33%,var(--blue) 34%); clip-path:polygon(34% 0,100% 0,100% 75%,65% 100%,65% 28%,0 28%); }
+    .eyebrow { color:var(--blue); font:700 12px/1.2 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:.12em; text-transform:uppercase; margin:0 0 7px; }
+    .file-control { display:flex; align-items:center; gap:10px; color:var(--muted); white-space:nowrap; }
+    .file-control label,.button { padding:10px 14px; border:0; background:var(--blue-soft); color:#fff; font:600 15px 'Bahnschrift','Segoe UI',sans-serif; transition:background .15s ease; }
+    .file-control label:hover,.button:hover { background:var(--blue); }
+    .about-trigger { border:0; padding:8px 4px; color:var(--blue); background:transparent; font:600 14px 'Bahnschrift','Segoe UI',sans-serif; }
+    .about-trigger:hover { text-decoration:underline; }
+    .file-control input { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0; }
+    .page { height:calc(100vh - 132px); max-width:1680px; margin:auto; padding:20px clamp(16px,3vw,48px) 34px; overflow:hidden; }
+    .upload { border:1px dashed #8eb4d1; padding:34px; text-align:center; background:#fff; }
+    .upload h2 { margin:0 0 6px; font-size:22px; }
+    .upload p { margin:0; color:var(--muted); }
+    .app { display:none; height:100%; min-height:0; flex-direction:column; }
+    .summary { display:flex; justify-content:space-between; align-items:center; margin:0 0 14px; gap:15px; }
+    .summary p { margin:0; color:var(--muted); }
+    .summary strong { color:var(--ink); }
+    .filters { display:grid; grid-template-columns:2fr repeat(4,minmax(120px,1fr)); gap:9px; margin-bottom:18px; }
+    .filters input,.filters select { width:100%; padding:11px 12px; background:var(--card); border:1px solid #b9d0e2; color:var(--ink); outline-color:var(--blue); }
+    .filters input { grid-column:span 2; }
+    .workspace { display:grid; grid-template-columns:minmax(350px,.9fr) minmax(500px,1.6fr); flex:1; min-height:0; border:1px solid var(--line); background:var(--card); box-shadow:0 12px 35px #00558f16; }
+    .list-pane { min-height:0; border-right:1px solid var(--line); overflow:auto; }
+    .record { display:block; width:100%; text-align:left; padding:14px 16px; border:0; border-bottom:1px solid #ebe5da; background:transparent; color:inherit; }
+    .record:hover,.record.active { background:var(--blue-pale); }
+    .record.active { box-shadow:inset 4px 0 var(--blue); }
+    .record-top { display:flex; justify-content:space-between; gap:10px; font:600 14px 'Bahnschrift','Segoe UI',sans-serif; }
+    .record-id { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .badge { color:var(--blue); }
+    .aggregate-badge { display:inline-block; margin-top:7px; padding:3px 6px; color:#00517f; background:#d9ebf7; border-left:3px solid var(--accent); font:700 11px 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:.03em; text-transform:uppercase; }
+    .record-meta { margin-top:5px; color:var(--muted); font-size:13px; }
+    .pager { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; background:#f5f9fc; border-bottom:1px solid var(--line); position:sticky; bottom:0; }
+    .pager span { color:var(--muted); font-size:13px; }
+    .pager button { border:0; padding:7px 10px; background:var(--blue-soft); color:#fff; font:600 13px 'Bahnschrift','Segoe UI',sans-serif; }
+    .pager button:disabled { cursor:not-allowed; background:#d5e1ea; }
+    .detail-pane { min-height:0; overflow:auto; padding:24px clamp(18px,3vw,38px); }
+    .empty { color:var(--muted); padding:40px 5px; text-align:center; }
+    .detail-head { display:flex; justify-content:space-between; gap:15px; align-items:start; border-bottom:2px solid var(--blue); padding-bottom:16px; }
+    .detail-head h2 { margin:2px 0 0; font-size:26px; letter-spacing:-.03em; }
+    .chip { display:inline-block; padding:3px 7px; background:var(--blue-pale); color:var(--blue); font:700 12px ui-monospace,Consolas,monospace; }
+    .meta { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 20px; margin:20px 0 28px; }
+    .meta div { min-width:0; }
+    .meta dt { color:var(--blue); font:700 11px 'Bahnschrift','Segoe UI',sans-serif; text-transform:uppercase; letter-spacing:.06em; }
+    .meta dd { margin:3px 0 0; word-break:break-word; }
+    .tabs { display:flex; gap:8px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+    .tab { padding:8px 2px; margin-right:14px; border:0; border-bottom:3px solid transparent; background:transparent; color:var(--muted); font-weight:bold; }
+    .tab.active { color:var(--blue); border-color:var(--blue); }
+    .message-tabs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 15px; }
+    .message-tab { border:1px solid var(--line); background:#fffaf0; padding:5px 8px; font:12px ui-monospace,Consolas,monospace; }
+    .message-tab.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+    .section { margin:0 0 21px; }
+    .section h3 { margin:0 0 8px; font-size:16px; color:var(--blue); }
+    .segment { display:grid; grid-template-columns:60px 1fr; border-bottom:1px solid #eee8dc; padding:8px 0; gap:12px; }
+    .segment code { color:var(--blue); font-weight:bold; }
+    .segment-values { display:flex; flex-wrap:wrap; gap:5px; }
+    .value { padding:2px 5px; background:#eff5f9; font:12px ui-monospace,Consolas,monospace; word-break:break-word; }
+    mark { padding:0; background:#d8e9f5; color:inherit; }
+    pre { margin:0; padding:16px; white-space:pre-wrap; overflow-wrap:anywhere; background:#073e68; color:#edf6fb; font:12px/1.6 ui-monospace,Consolas,monospace; }
+    .notice { color:var(--muted); font-style:italic; }
+    dialog { width:min(690px,calc(100vw - 32px)); max-height:min(740px,calc(100vh - 32px)); padding:0; border:0; background:transparent; overflow:visible; box-shadow:0 28px 80px #002b4c66; }
+    dialog::backdrop { background:#002b4c99; backdrop-filter:blur(5px); }
+    .about-card { position:relative; overflow:hidden; background:#fff; }
+    .about-card::before { content:''; position:absolute; top:-125px; right:-100px; width:330px; height:330px; border:44px solid #d7e8f4; border-radius:50%; }
+    .about-top { position:relative; padding:36px 46px 30px; color:#fff; background:linear-gradient(118deg,#004775,#006da9); }
+    .about-top::after { content:''; position:absolute; width:190px; height:190px; right:-76px; bottom:-105px; border:1px solid #8ec5e7; transform:rotate(45deg); }
+    .about-logo { position:relative; display:inline-block; padding-right:28px; font:300 29px/1 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:.08em; }
+    .about-logo::after { content:''; position:absolute; top:-2px; right:0; width:18px; height:26px; background:#a9cbe0; clip-path:polygon(32% 0,100% 0,100% 75%,66% 100%,66% 27%,0 27%); }
+    .about-top h2 { position:relative; max-width:460px; margin:22px 0 0; font:300 clamp(29px,5vw,42px)/1.1 'Bahnschrift','Segoe UI',sans-serif; letter-spacing:-.03em; }
+    .about-close { position:absolute; z-index:2; top:14px; right:15px; width:34px; height:34px; border:1px solid #ffffff88; border-radius:50%; color:#fff; background:#ffffff1f; font-size:23px; line-height:1; }
+    .about-close:hover { background:#fff; color:var(--blue); }
+    .about-body { position:relative; padding:30px 46px 38px; }
+    .about-lead { max-width:520px; margin:0 0 25px; font-size:18px; line-height:1.55; }
+    .about-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .about-item { min-height:125px; padding:16px; border-top:3px solid var(--blue-soft); background:#f3f8fb; }
+    .about-item strong { display:block; margin:0 0 7px; color:var(--blue); font-size:14px; }
+    .about-item span { color:#556572; font-size:13px; line-height:1.35; }
+    .about-foot { margin:25px 0 0; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+    @media (max-width:900px) { body { overflow:auto; } .masthead { align-items:start; flex-direction:column; } .page { height:auto; overflow:visible; } .app { height:auto; } .filters { grid-template-columns:1fr 1fr; } .filters input { grid-column:span 2; } .workspace { grid-template-columns:1fr; min-height:670px; } .list-pane { max-height:40vh; border-right:0; border-bottom:1px solid var(--line); } .detail-pane { max-height:none; } .meta { grid-template-columns:1fr 1fr; } .about-top,.about-body { padding-left:26px; padding-right:26px; } .about-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header class="masthead"><div class="brand" aria-label="FACTUR"><div class="brand-name">FACTUR</div><p class="brand-tagline">Gemeinsam <span>weiter</span></p><span class="brand-mark" aria-hidden="true"></span></div><div class="file-control"><button id="aboutButton" class="about-trigger" type="button">Über den Viewer</button><span id="fileName">Keine Datei geladen</span><label for="fileInput">JSON-Datei öffnen</label><input id="fileInput" type="file" accept="application/json,.json"></div></header>
+  <main class="page">
+    <section id="upload" class="upload"><h2>Nachrichten lokal analysieren</h2><p>Öffnen Sie eine JSON-Datei mit einer <code>value</code>-Liste und EDIFACT-Nutzlasten. Die Daten verlassen Ihren Browser nicht.</p></section>
+    <section id="app" class="app">
+      <div class="summary"><p id="resultInfo"></p><button id="clearFilters" class="button" type="button">Filter zurücksetzen</button></div>
+      <div class="filters"><input id="search" type="search" placeholder="Volltextsuche: ID, Partner, Referenz, EDIFACT-Wert ..."><select id="formatFilter"><option value="">Alle Formate</option></select><select id="directionFilter"><option value="">Alle Richtungen</option></select><select id="statusFilter"><option value="">Alle Status</option></select><select id="categoryFilter"><option value="">Alle Kategorien</option></select></div>
+      <div class="workspace"><aside id="recordList" class="list-pane" aria-label="Nachrichtenliste"></aside><article id="detail" class="detail-pane"><p class="empty">Wählen Sie eine Nachricht aus der Liste.</p></article></div>
+    </section>
+  </main>
+  <dialog id="aboutDialog" aria-labelledby="aboutTitle">
+    <section class="about-card">
+      <div class="about-top"><button id="aboutClose" class="about-close" type="button" aria-label="Dialog schließen">×</button><div class="about-logo">FACTUR</div><h2 id="aboutTitle">EDIFACT transparent machen.</h2></div>
+      <div class="about-body"><p class="about-lead">Der EDIFACT Explorer übersetzt Nachrichtendaten in eine übersichtliche Arbeitsansicht für den Fachbereich.</p><div class="about-grid"><div class="about-item"><strong>Lokale Verarbeitung</strong><span>Die ausgewählte Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht übertragen.</span></div><div class="about-item"><strong>Struktur statt Rohtext</strong><span>Segmente, Metadaten und mehrere Nachrichten werden klar und durchsuchbar aufbereitet.</span></div><div class="about-item"><strong>Für den Alltag</strong><span>Filter, Volltextsuche und eine fokussierte Detailansicht beschleunigen die Recherche.</span></div></div><p class="about-foot">Version 1.0 · Statischer Fachbereichs-Viewer für JSON-Nachrichten mit EDIFACT-Nutzlast.<br><strong>Powered by FACTUR IT-M</strong></p></div>
+    </section>
+  </dialog>
+  <script>
+    const state = { records: [], filtered: [], selectedId: null, activeTab: 'structured', activeMessage: 0, page: 0, pageSize: 250 };
+    const labels = { UNB:'Austauschkopf', UNH:'Nachrichtenkopf', BGM:'Dokument / Vorgang', DTM:'Datum und Zeit', NAD:'Marktpartner', CTA:'Ansprechpartner', COM:'Kontakt', RFF:'Referenz', LOC:'Ort / Lokation', LIN:'Position', PIA:'Zusatz-ID', QTY:'Menge', MOA:'Betrag', FTX:'Freitext', ERC:'Fehlercode', UNT:'Nachrichtenende', UNZ:'Austauschende' };
+    const $ = id => document.getElementById(id);
+    function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
+    function highlight(value) { const query = $('search').value.trim(); const safe = escapeHtml(value); if (!query) return safe; const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return safe.replace(new RegExp('('+escaped+')','ig'), '<mark>$1</mark>'); }
+    function splitEdifact(value, separator, releaseChar) {
+      const parts = []; let current = ''; let released = false;
+      for (const char of value) {
+        if (released) { current += char; released = false; continue; }
+        if (char === releaseChar) { released = true; continue; }
+        if (char === separator) { parts.push(current); current = ''; continue; }
+        current += char;
+      }
+      if (released) current += releaseChar;
+      parts.push(current);
+      return parts;
+    }
+    function parseEdifact(source) {
+      if (!source || typeof source !== 'string') return [];
+      let segmentSep = "'", elementSep = '+', componentSep = ':', releaseChar = '?';
+      if (source.startsWith('UNA') && source.length > 8) { componentSep = source[3]; elementSep = source[4]; releaseChar = source[6]; segmentSep = source[8]; }
+      const rawSegments = splitEdifact(source, segmentSep, releaseChar).map(s => s.trim()).filter(Boolean);
+      const messages = []; let current = [];
+      rawSegments.forEach(raw => { const elements = splitEdifact(raw, elementSep, releaseChar); const segment = { tag: elements[0], elements: elements.slice(1), raw }; if (segment.tag === 'UNH' && current.length) { messages.push(current); current = []; } current.push(segment); if (segment.tag === 'UNT') { messages.push(current); current = []; } });
+      if (current.length) messages.push(current);
+      return messages.map(segments => ({ segments, type: (segments.find(s => s.tag === 'UNH')?.elements[1] || 'EDIFACT').split(componentSep)[0] }));
+    }
+    function normalize(record) { const payload = record.payload?.payload || ''; const messages = parseEdifact(payload); const metadata = [record.ID,record.messageID,record.referenceMessageID,record.communicationPartnerID,record.ownPartnerID,record.businessStatus,record.direction,record.messageCategory,record.messageFormat,record.processingStatus,record.transferTimestamp].filter(Boolean).join(' '); return {...record, _payload:payload, _messages:messages, _messageCount:messages.filter(message => message.segments.some(segment => segment.tag === 'UNH')).length, _search:(metadata + ' ' + payload).toLowerCase()}; }
+    function setOptions(id, property) { const values = [...new Set(state.records.map(r => r[property]).filter(Boolean))].sort(); $(id).insertAdjacentHTML('beforeend', values.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')); }
+    function formatDate(value) { if (!value) return '–'; const date = new Date(value); return Number.isNaN(date) ? value : date.toLocaleString('de-DE'); }
+    function applyFilters() { const query = $('search').value.trim().toLowerCase(); state.filtered = state.records.filter(r => (!query || r._search.includes(query)) && (!$('formatFilter').value || r.messageFormat === $('formatFilter').value) && (!$('directionFilter').value || r.direction === $('directionFilter').value) && (!$('statusFilter').value || r.processingStatus === $('statusFilter').value) && (!$('categoryFilter').value || r.messageCategory === $('categoryFilter').value)); const lastPage = Math.max(0, Math.ceil(state.filtered.length / state.pageSize) - 1); state.page = Math.min(state.page, lastPage); if (!state.filtered.some(r => r.ID === state.selectedId)) state.selectedId = state.filtered[0]?.ID || null; renderList(); renderDetail(); }
+    function renderList() { const start = state.page * state.pageSize; const shown = state.filtered.slice(start, start + state.pageSize); const totalPages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize)); $('resultInfo').innerHTML = `<strong>${state.filtered.length.toLocaleString('de-DE')}</strong> von ${state.records.length.toLocaleString('de-DE')} Nachrichten${state.filtered.length > state.pageSize ? ` · Seite ${state.page + 1} von ${totalPages}` : ''}`; const records = shown.length ? shown.map(r => `<button class="record ${r.ID === state.selectedId ? 'active':''}" data-id="${escapeHtml(r.ID)}"><div class="record-top"><span class="record-id">${highlight(r.messageID || r.ID)}</span><span class="badge">${highlight(r.messageFormat || '–')}</span></div><div class="record-meta">${highlight(r.direction || '–')} · ${highlight(r.processingStatus || '–')}<br>${highlight(r.communicationPartnerID || 'Kein Partner')} · ${formatDate(r.transferTimestamp)}${r._messageCount > 1 ? `<br><span class="aggregate-badge">Sammelnachricht · ${r._messageCount} EDIFACT-Nachrichten</span>` : ''}</div></button>`).join('') : '<p class="empty">Keine passenden Nachrichten.</p>'; const pager = state.filtered.length > state.pageSize ? `<nav class="pager" aria-label="Seitennavigation"><button type="button" data-page="previous" ${state.page === 0 ? 'disabled':''}>← Zurück</button><span>${(start + 1).toLocaleString('de-DE')}–${Math.min(start + state.pageSize, state.filtered.length).toLocaleString('de-DE')} von ${state.filtered.length.toLocaleString('de-DE')}</span><button type="button" data-page="next" ${state.page >= totalPages - 1 ? 'disabled':''}>Weiter →</button></nav>` : ''; $('recordList').innerHTML = records + pager; }
+    function metaItem(label, value) { return `<div><dt>${label}</dt><dd>${highlight(value || '–')}</dd></div>`; }
+    function renderStructured(record) { const messages = record._messages; if (!messages.length) return '<p class="notice">Keine EDIFACT-Segmente in der Nutzlast erkannt.</p>'; const message = messages[state.activeMessage] || messages[0]; const tabs = messages.length > 1 ? `<div class="message-tabs">${messages.map((m,i) => `<button class="message-tab ${i === state.activeMessage?'active':''}" data-message="${i}">Nachricht ${i+1}: ${escapeHtml(m.type)}</button>`).join('')}</div>` : ''; const segments = message.segments.map(s => `<div class="segment"><code title="${escapeHtml(labels[s.tag] || 'EDIFACT-Segment')}">${escapeHtml(s.tag)}</code><div><small>${escapeHtml(labels[s.tag] || 'EDIFACT-Segment')}</small><div class="segment-values">${s.elements.map((v,i) => `<span class="value" title="Element ${i+1}">${highlight(v || '∅')}</span>`).join('')}</div></div></div>`).join(''); return tabs + `<div class="section"><h3>${escapeHtml(message.type)} · ${message.segments.length} Segmente</h3>${segments}</div>`; }
+    function renderDetail() { const record = state.records.find(r => r.ID === state.selectedId); if (!record) { $('detail').innerHTML = '<p class="empty">Wählen Sie eine Nachricht aus der Liste.</p>'; return; } const tabs = `<div class="tabs"><button class="tab ${state.activeTab==='structured'?'active':''}" data-tab="structured">Strukturierte Ansicht</button><button class="tab ${state.activeTab==='raw'?'active':''}" data-tab="raw">EDIFACT-Rohdaten</button></div>`; const aggregation = record._messageCount > 1 ? `<span class="aggregate-badge">Sammelnachricht · ${record._messageCount} EDIFACT-Nachrichten enthalten</span>` : ''; $('detail').innerHTML = `<div class="detail-head"><div><p class="eyebrow">${escapeHtml(record.direction || 'Nachricht')} · ${escapeHtml(record.processingStatus || 'ohne Status')}</p><h2>${highlight(record.messageFormat || 'EDIFACT')} <span class="chip">${highlight(record.messageID || record.ID)}</span></h2>${aggregation}</div></div><dl class="meta">${metaItem('Übertragung',formatDate(record.transferTimestamp))}${metaItem('Kommunikationspartner',record.communicationPartnerID)}${metaItem('Eigene Partner-ID',record.ownPartnerID)}${metaItem('Kategorie',record.messageCategory)}${metaItem('Referenz',record.referenceMessageID)}${metaItem('Austauschweg',record.exchangeMethod)}</dl>${tabs}${state.activeTab === 'raw' ? `<pre>${highlight(record._payload)}</pre>` : renderStructured(record)}`; }
+    function loadJson(text, name) { let data; try { data = JSON.parse(text); } catch { alert('Die Datei enthält kein gültiges JSON.'); return; } const list = Array.isArray(data.value) ? data.value : (Array.isArray(data) ? data : []); if (!list.length) { alert('Keine Datensätze gefunden. Erwartet wird eine Liste in "value".'); return; } state.records = list.map(normalize); state.selectedId = state.records[0].ID; state.activeTab = 'structured'; state.activeMessage = 0; ['formatFilter','directionFilter','statusFilter','categoryFilter'].forEach(id => { $(id).innerHTML = $(id).options[0].outerHTML; }); setOptions('formatFilter','messageFormat'); setOptions('directionFilter','direction'); setOptions('statusFilter','processingStatus'); setOptions('categoryFilter','messageCategory'); $('fileName').textContent = name; $('upload').style.display = 'none'; $('app').style.display = 'flex'; applyFilters(); }
+    $('fileInput').addEventListener('change', event => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => loadJson(reader.result, file.name); reader.readAsText(file); });
+    $('aboutButton').addEventListener('click', () => $('aboutDialog').showModal());
+    $('aboutClose').addEventListener('click', () => $('aboutDialog').close());
+    $('aboutDialog').addEventListener('click', event => { if (event.target === $('aboutDialog')) $('aboutDialog').close(); });
+    ['search','formatFilter','directionFilter','statusFilter','categoryFilter'].forEach(id => $(id).addEventListener(id === 'search' ? 'input' : 'change', () => { state.activeMessage = 0; state.page = 0; applyFilters(); }));
+    $('clearFilters').addEventListener('click', () => { ['search','formatFilter','directionFilter','statusFilter','categoryFilter'].forEach(id => $(id).value = ''); state.activeMessage = 0; state.page = 0; applyFilters(); });
+    $('recordList').addEventListener('click', event => { const pageButton = event.target.closest('[data-page]'); const button = event.target.closest('[data-id]'); if (pageButton) { state.page += pageButton.dataset.page === 'next' ? 1 : -1; applyFilters(); } if (button) { state.selectedId = button.dataset.id; state.activeMessage = 0; renderList(); renderDetail(); } });
+    $('detail').addEventListener('click', event => { const tab = event.target.closest('[data-tab]'); const message = event.target.closest('[data-message]'); if (tab) { state.activeTab = tab.dataset.tab; renderDetail(); } if (message) { state.activeMessage = Number(message.dataset.message); renderDetail(); } });
+  </script>
+</body>
+</html>
