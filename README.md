@@ -41,6 +41,7 @@ fiktive Beispiele für alle unterstützten Nachrichtenformate.
 npm test           # Unit-Tests, läuft ohne npm install
 npm install        # nur für Lint und Formatierung nötig
 npm run lint       # ESLint
+npm run lint:css   # Stylelint für CSS
 npm run format     # Prettier schreibt
 npm run format:check
 ```
@@ -159,6 +160,7 @@ ausschließlich fiktive Daten und kann sicher als Beispieldatei verwendet werden
 - CSS3 mit Design-Token
 - Vanilla JavaScript (klassische Skripte, ein Namensraum)
 - Keine externen Laufzeitabhängigkeiten
+- ESLint, Stylelint und Prettier als Entwicklungswerkzeuge
 
 ## Lizenz
 
