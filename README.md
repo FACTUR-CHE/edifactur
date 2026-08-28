@@ -29,6 +29,8 @@ Es gibt keine Abhaengigkeiten und keinen Build-Schritt.
 
 Alternativ kann die Datei ueber einen beliebigen lokalen Webserver bereitgestellt werden.
 
+Als sicheren Einstieg enthaelt [data/sample-messages.json](data/sample-messages.json) vollstaendig fiktive Beispiele fuer alle unterstuetzten Nachrichtenformate. Die Datei kann direkt im Viewer geoeffnet werden.
+
 ## Projektstruktur
 
 | Datei                                | Verantwortung                                        |
@@ -64,7 +66,7 @@ Die Anwendung erwartet ein JSON-Objekt mit einer `value`-Liste. Jeder Eintrag en
 
 ## Datenschutz und Daten
 
-EDIFACT-Exporte koennen personenbezogene oder vertrauliche Geschaeftsdaten enthalten. Beispieldateien und produktive Exporte gehoeren daher nicht in dieses Repository. `data/response.json` ist lokal vorhanden, wird aber durch [.gitignore](.gitignore) bewusst ausgeschlossen.
+EDIFACT-Exporte koennen personenbezogene oder vertrauliche Geschaeftsdaten enthalten. Produktive Exporte gehoeren daher nicht in dieses Repository. `data/response.json` ist lokal vorhanden, wird aber durch [.gitignore](.gitignore) bewusst ausgeschlossen. `data/sample-messages.json` verwendet ausschliesslich fiktive Daten und kann sicher als Beispieldatei verwendet werden.
 
 ## Technologie
 
