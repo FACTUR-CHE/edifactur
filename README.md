@@ -5,45 +5,89 @@
 ![Local processing](https://img.shields.io/badge/data-local%20processing-2d7d46)
 ![EDIFACT](https://img.shields.io/badge/format-EDIFACT-004b80)
 
-> Ein schlanker, browserbasierter Viewer fuer JSON-Exporte mit EDIFACT-Nutzlasten.
+> Ein schlanker, browserbasierter Viewer für JSON-Exporte mit EDIFACT-Nutzlasten.
 
-Der EDIFACT Explorer macht Fachnachrichten durchsuchbar und lesbar. Er zeigt Metadaten, erkannte EDIFACT-Segmente und die originale Nutzlast in einer fokussierten Arbeitsansicht an. Die Verarbeitung findet ausschliesslich im Browser statt.
+Der EDIFACT Explorer macht Fachnachrichten durchsuchbar und lesbar. Er zeigt Metadaten, erkannte
+EDIFACT-Segmente und die originale Nutzlast in einer fokussierten Arbeitsansicht an. Die
+Verarbeitung findet ausschließlich im Browser statt.
 
 ## Funktionen
 
-| Karte                 | Beschreibung                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------- |
-| Suche und Filter      | Volltextsuche sowie Filter nach Format, Richtung, Status und Kategorie.             |
-| Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                  |
-| Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                   |
-| Rohdaten              | Die unveraenderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                     |
-| Lokale Verarbeitung   | Hochgeladene Daten bleiben im Browser und werden nicht an einen Server uebertragen. |
+| Karte                 | Beschreibung                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| Suche und Filter      | Volltextsuche sowie Filter nach Format, Richtung, Status und Kategorie.            |
+| Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                 |
+| Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                  |
+| Rohdaten              | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                     |
+| Lokale Verarbeitung   | Hochgeladene Daten bleiben im Browser und werden nicht an einen Server übertragen. |
 
 ## Starten
 
-Es gibt keine Abhaengigkeiten und keinen Build-Schritt.
+Keine Laufzeitabhängigkeiten, kein Build-Schritt, kein Webserver.
 
-1. [index.html](index.html) im Browser oeffnen.
-2. Eine JSON-Datei ueber **JSON-Datei oeffnen** auswaehlen.
+1. [index.html](index.html) im Browser öffnen — ein Doppelklick genügt.
+2. Eine JSON-Datei über **JSON-Datei öffnen** auswählen.
 3. Nachrichten durchsuchen, filtern und im Detailbereich untersuchen.
 
-Alternativ kann die Datei ueber einen beliebigen lokalen Webserver bereitgestellt werden.
+Für die Weitergabe reicht es, das Projektverzeichnis vollständig zu kopieren. Fehlen Dateien aus
+`src`, weist die Anwendung beim Start darauf hin statt ohne Funktion dazustehen.
 
-Als sicheren Einstieg enthaelt [data/sample-messages.json](data/sample-messages.json) vollstaendig fiktive Beispiele fuer alle unterstuetzten Nachrichtenformate. Die Datei kann direkt im Viewer geoeffnet werden.
+Als sicheren Einstieg enthält [data/sample-messages.json](data/sample-messages.json) vollständig
+fiktive Beispiele für alle unterstützten Nachrichtenformate.
 
-## Projektstruktur
+## Entwicklung
 
-| Datei                                | Verantwortung                                        |
-| ------------------------------------ | ---------------------------------------------------- |
-| [index.html](index.html)             | Semantische Struktur und Einbindung der Anwendung.   |
-| [styles.css](styles.css)             | Layout, responsive Darstellung und visuelles Design. |
-| [app.js](app.js)                     | Datei-Import, EDIFACT-Parser, Filter und Rendering.  |
-| [.editorconfig](.editorconfig)       | Einheitliche Editor-Konventionen.                    |
-| [.prettierrc.json](.prettierrc.json) | Konfiguration fuer die automatische Formatierung.    |
+```bash
+npm test           # Unit-Tests, läuft ohne npm install
+npm install        # nur für Lint und Formatierung nötig
+npm run lint       # ESLint
+npm run format     # Prettier schreibt
+npm run format:check
+```
+
+`npm test` braucht kein `npm install`, weil der Testrunner Teil von Node ist. Getestet wird die
+reine Logik: Parser, Datensatzmodell und Formatierung. Die Darstellungsschicht wird nicht
+unit-getestet — sie erzeugt DOM-Knoten und wird im Browser geprüft.
+
+## Aufbau des JavaScript
+
+Die Dateien in `src` sind **klassische Skripte**, keine ES-Module. Das ist eine bewusste
+Entscheidung: Browser laden ES-Module aus Sicherheitsgründen nicht über `file://`, der Viewer
+ließe sich dann nicht mehr per Doppelklick öffnen.
+
+Jede Datei kapselt sich stattdessen in einer IIFE mit `'use strict'` und hängt ihre öffentlichen
+Namen an einen einzigen globalen Namensraum:
+
+```js
+(function (ns) {
+  'use strict';
+  function parseEdifact(source) {
+    /* ... */
+  }
+  ns.parseEdifact = parseEdifact;
+})((globalThis.EdifactExplorer ??= {}));
+```
+
+Das ergibt Strict Mode, mehrere Dateien mit je einer Verantwortung und genau **einen** globalen
+Namen statt der rund 25, die eine flache Datei hinterlässt — ohne Build-Schritt.
+
+Weil die Dateien kein `import`/`export` enthalten, sind sie gleichzeitig gültige ES-Module. Die
+Tests laden sie deshalb per Seiteneffekt-Import und lesen den Namensraum aus:
+
+```js
+import '../src/edifact.js';
+const { parseEdifact } = globalThis.EdifactExplorer;
+```
+
+Querverweise zwischen den Dateien laufen zur Laufzeit über `ns.` — die Ladereihenfolge ist damit
+nur für `src/app.js` relevant, das zuletzt kommt und das DOM verdrahtet. Die Reihenfolge steht in
+[index.html](index.html).
 
 ## Erwartetes Datenformat
 
-Die Anwendung erwartet ein JSON-Objekt mit einer `value`-Liste. Jeder Eintrag enthaelt Metadaten und die EDIFACT-Nutzlast unter `payload.payload`.
+Die Anwendung erwartet ein JSON-Objekt mit einer `value`-Liste (eine Liste auf oberster Ebene wird
+ebenfalls akzeptiert). Jeder Eintrag enthält Metadaten und die EDIFACT-Nutzlast unter
+`payload.payload`.
 
 ```json
 {
@@ -64,16 +108,57 @@ Die Anwendung erwartet ein JSON-Objekt mit einer `value`-Liste. Jeder Eintrag en
 }
 ```
 
+Fehlt `ID` oder ist der Wert doppelt vergeben, vergibt die Anwendung eine eigene, eindeutige
+Kennung — die Auswahl in der Liste bleibt dadurch eindeutig.
+
+## Sicherheit und Darstellung
+
+Die eingelesene Datei ist Fremddaten. Die Oberfläche wird deshalb ausschließlich über
+`document.createElement` und `textContent` aufgebaut; es gibt kein `innerHTML` und keine manuelle
+HTML-Maskierung. Damit kann kein Feldinhalt als Markup interpretiert werden.
+
+Die Suchhervorhebung arbeitet auf dem Rohtext und liefert Textabschnitte
+([`splitByQuery`](src/format.js)), die erst in der DOM-Schicht in `<mark>`-Elemente umgesetzt
+werden. Ein Suchbegriff kann dadurch weder eine HTML-Entity zerstören noch als regulärer Ausdruck
+wirken.
+
+## Zugänglichkeit
+
+- Die Seitenüberschrift steht als `<h1>` im Dokument, nicht in einem CSS-Pseudoelement.
+- Ansicht- und Nachrichten-Umschalter folgen dem ARIA-Tabs-Muster mit `aria-selected` und
+  Pfeiltasten-Navigation.
+- Trefferzahl (`role="status"`) und Meldungen (`role="alert"`) werden angekündigt; es gibt keine
+  `alert()`-Dialoge.
+- Der ausgewählte Datensatz ist mit `aria-current` markiert. Sichtbarer und angekündigter Zustand
+  hängen am selben Attribut — das Stylesheet greift `aria-selected` beziehungsweise `aria-current`
+  ab, statt eine zweite Klasse zu führen.
+- Alle Bedienelemente haben eine sichtbare Fokusdarstellung (`:focus-visible`).
+- `prefers-reduced-motion` wird respektiert.
+
+## Bekannte Einschränkungen
+
+- **Schriftart.** Das Design ist auf _Bahnschrift_ ausgelegt, eine Windows-Schrift. Die
+  Fallback-Kette greift auf macOS und Linux (`DIN Alternate`, `Roboto`, `system-ui`), das Bild
+  weicht dort aber ab. Für eine plattformgleiche Darstellung müsste eine Webfont-Datei
+  mitgeliefert werden.
+- **Kein dunkles Farbschema.** Die Palette ist an das Corporate Design gebunden; eine dunkle
+  Variante ist eine Design-Entscheidung und bewusst nicht vorweggenommen.
+- **Sehr große Dateien.** Die Filterung läuft über einen vorberechneten Volltextindex und die
+  Liste ist auf 250 Datensätze pro Seite begrenzt, es gibt aber kein Virtual Scrolling.
+
 ## Datenschutz und Daten
 
-EDIFACT-Exporte koennen personenbezogene oder vertrauliche Geschaeftsdaten enthalten. Produktive Exporte gehoeren daher nicht in dieses Repository. `data/response.json` ist lokal vorhanden, wird aber durch [.gitignore](.gitignore) bewusst ausgeschlossen. `data/sample-messages.json` verwendet ausschliesslich fiktive Daten und kann sicher als Beispieldatei verwendet werden.
+EDIFACT-Exporte können personenbezogene oder vertrauliche Geschäftsdaten enthalten. Produktive
+Exporte gehören daher nicht in dieses Repository. `data/response.json` ist lokal vorhanden, wird
+aber durch [.gitignore](.gitignore) bewusst ausgeschlossen. `data/sample-messages.json` verwendet
+ausschließlich fiktive Daten und kann sicher als Beispieldatei verwendet werden.
 
 ## Technologie
 
 - HTML5
-- CSS3
-- Vanilla JavaScript
-- Keine externen Laufzeitabhaengigkeiten
+- CSS3 mit Design-Token
+- Vanilla JavaScript (klassische Skripte, ein Namensraum)
+- Keine externen Laufzeitabhängigkeiten
 
 ## Lizenz
 

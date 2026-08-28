@@ -1,635 +1,907 @@
+/* ==========================================================================
+   EDIFACT Explorer -- Stylesheet
+
+   Aufbau:
+     1. Token      Primitive Farb-/Schriftwerte und darauf aufbauende
+                   semantische Namen. Komponenten verwenden nur die
+                   semantische Ebene, nie rohe Hex-Werte.
+     2. Basis      Reset, Typografie, globale Fokusdarstellung, Utilities.
+     3. Layout     Kopfbereich, Seite, Arbeitsbereich.
+     4. Komponenten
+     5. Dialog
+     6. Media Queries
+   ========================================================================== */
+
+/* == 1. Token ============================================================= */
+
 :root {
-  --ink: #252a31;
-  --muted: #71808e;
-  --paper: #f6f8fa;
-  --card: #fff;
-  --line: #d4e0e9;
-  --blue: #00558f;
-  --blue-deep: #004b80;
-  --blue-soft: #adc7dd;
-  --blue-pale: #eaf2f8;
-  --accent: #0072bc;
-  --teal: #00558f;
-  --warn: #f2b84b;
+  /* -- Primitive: Blauskala ------------------------------------------------ */
+  --blue-900: #073e68;
+  --blue-800: #004775;
+  --blue-700: #00558f;
+  --blue-600: #006da9;
+  --blue-500: #0072bc;
+  --blue-300: #8ec5e7;
+  --blue-200: #adc7dd;
+  --blue-100: #d7e8f4;
+  --blue-050: #eaf2f8;
+  --blue-025: #f3f8fb;
+
+  /* -- Primitive: Neutrale ------------------------------------------------- */
+  --gray-900: #252a31;
+  --gray-800: #41454b;
+  --gray-700: #50555c;
+  --gray-600: #556572;
+  --gray-500: #71808e;
+  --gray-300: #d4e0e9;
+  --gray-100: #e6edf2;
+  --white: #fff;
+
+  /* -- Primitive: Signalfarben -------------------------------------------- */
+  --red-700: #a32b21;
+  --red-050: #fbeeec;
+  --amber-800: #8a5d0c;
+  --amber-050: #fdf4e3;
+
+  /* -- Semantisch: Text --------------------------------------------------- */
+  --ink: var(--gray-900);
+  --ink-soft: var(--gray-600);
+  --muted: var(--gray-500);
+  --on-brand: var(--white);
+
+  /* -- Semantisch: Flaechen ----------------------------------------------- */
+  --surface: var(--white);
+  --surface-sunken: var(--blue-025);
+  --surface-highlight: var(--blue-050);
+  --page-background: linear-gradient(120deg, #f5f8fa, var(--white) 34%, #eef4f8);
+
+  /* -- Semantisch: Linien ------------------------------------------------- */
+  --line: var(--gray-300);
+  --line-soft: var(--gray-100);
+  --line-field: var(--blue-200);
+  --line-dashed: var(--blue-300);
+
+  /* -- Semantisch: Marke und Interaktion ---------------------------------- */
+  --brand: var(--blue-700);
+  --brand-deep: var(--blue-800);
+  --brand-light: var(--blue-600);
+  --accent: var(--blue-500);
+  --focus: var(--blue-500);
+  --control: var(--blue-200);
+  --control-hover: var(--blue-700);
+  --control-disabled: var(--blue-100);
+
+  /* -- Semantisch: Codedarstellung ---------------------------------------- */
+  --code-surface: var(--blue-900);
+  --code-ink: var(--blue-050);
+  --value-surface: var(--blue-025);
+  --mark-surface: var(--blue-100);
+
+  /* -- Semantisch: Meldungen ---------------------------------------------- */
+  --danger-ink: var(--red-700);
+  --danger-surface: var(--red-050);
+  --warning-ink: var(--amber-800);
+  --warning-surface: var(--amber-050);
+
+  /* -- Schrift ------------------------------------------------------------ */
+  /* Bahnschrift ist Windows-only; die Kette faellt ueber DIN Alternate
+     (macOS) und Roboto (Android/Linux) auf system-ui zurueck. Fuer eine
+     plattformgleiche Darstellung muesste eine Webfont-Datei mitgeliefert
+     werden -- siehe README. */
+  --font-sans:
+    'Bahnschrift', 'DIN Alternate', 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+
+  /* -- Abstaende ---------------------------------------------------------- */
+  --pad-masthead: clamp(20px, 11vw, 165px);
+  --pad-page: clamp(16px, 3vw, 48px);
+  --band-height: 60px;
 }
-* {
+
+/* == 2. Basis ============================================================= */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
-html,
-body {
-  height: 100%;
+
+html {
+  block-size: 100%;
 }
+
+/* Anwendungsrahmen: die Hoehe ist definit, damit `flex: 1` weiter unten
+   verteilbaren Platz hat und die Listen- und Detailspalte intern scrollen.
+   Mit `min-block-size` waere die Hoehe inhaltsabhaengig -- die Spalten wuerden
+   auf Inhaltshoehe wachsen statt zu scrollen. Auf schmalen Viewports (siehe
+   Media Query) scrollt stattdessen das Dokument. */
 body {
+  display: flex;
+  flex-direction: column;
+  block-size: 100dvh;
   margin: 0;
   overflow: hidden;
   color: var(--ink);
-  background: linear-gradient(120deg, #f5f8fa, #fff 34%, #eef4f8);
-  font:
-    16px/1.45 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  background: var(--page-background);
+  font: 400 16px/1.45 var(--font-sans);
 }
+
 button,
 input,
 select {
   font: inherit;
+  color: inherit;
 }
+
 button {
   cursor: pointer;
 }
+
+/* Eine einzige, deutlich sichtbare Fokusdarstellung fuer alle Bedienelemente.
+   Vorher gab es keine -- die Buttons setzen durchgaengig border: 0. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+
+/* Fuer Inhalte, die nur Hilfstechnologie erreichen soll. */
+.visually-hidden {
+  position: absolute;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* == 3. Layout ============================================================ */
+
 .masthead {
-  min-height: 132px;
-  padding: 20px clamp(20px, 11vw, 165px) 0;
+  flex: 0 0 auto;
+  background: var(--surface);
+}
+
+.masthead-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  border-bottom: 60px solid var(--blue);
-  background: #fff;
-  position: relative;
+  padding: 20px var(--pad-masthead) 14px;
 }
-.masthead::after {
-  content: 'EDIFACT Explorer';
-  position: absolute;
-  left: clamp(20px, 11vw, 165px);
-  bottom: -41px;
-  color: #fff;
-  font:
-    300 21px/1 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+
+/* Traegt das blaue Band mit der Seitenueberschrift. Frueher war das ein
+   60px-Rahmen plus ::after-Pseudoelement -- der Titel stand damit im
+   Stylesheet statt im Dokument. */
+.masthead-band {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--band-height);
+  padding: 8px var(--pad-masthead);
+  background: var(--brand);
+}
+
+.masthead-title {
+  margin: 0;
+  color: var(--on-brand);
+  font: 300 21px/1.2 var(--font-sans);
   letter-spacing: 0.04em;
 }
-h1 {
-  margin: 0;
-  font:
-    700 clamp(28px, 4vw, 48px) / 1.05 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
-  letter-spacing: -0.04em;
+
+.page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  inline-size: 100%;
+  max-inline-size: 1680px;
+  min-block-size: 0;
+  margin-inline: auto;
+  padding: 20px var(--pad-page) 34px;
 }
+
+.app {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+/* Sichtbarkeit wird ueber das hidden-Attribut geschaltet, nicht aus
+   JavaScript per style.display. */
+.app[hidden],
+.upload[hidden] {
+  display: none;
+}
+
+.workspace {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(350px, 0.9fr) minmax(500px, 1.6fr);
+  min-block-size: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 12px 35px rgb(0 85 143 / 9%);
+}
+
+.list-pane {
+  min-block-size: 0;
+  border-inline-end: 1px solid var(--line);
+  overflow: auto;
+}
+
+.detail-pane {
+  min-block-size: 0;
+  padding: 24px clamp(18px, 3vw, 38px);
+  overflow: auto;
+}
+
+/* == 4. Komponenten ======================================================= */
+
+/* -- Marke --------------------------------------------------------------- */
+
 .brand {
   position: relative;
   padding: 2px 52px 10px 0;
 }
+
 .brand-name {
-  color: #41454b;
-  font:
-    300 49px/1 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  display: block;
+  color: var(--gray-800);
+  font: 300 49px/1 var(--font-sans);
   letter-spacing: 0.045em;
 }
+
 .brand-tagline {
+  display: block;
   margin: 2px 0 0 91px;
-  color: #50555c;
-  font:
-    300 16px/1 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  color: var(--gray-700);
+  font: 300 16px/1 var(--font-sans);
   letter-spacing: 0.06em;
 }
+
 .brand-tagline span {
   color: var(--accent);
 }
+
 .brand-mark {
   position: absolute;
-  top: 0;
-  right: 7px;
-  width: 31px;
-  height: 42px;
-  background: linear-gradient(135deg, #95bbd6 0 33%, var(--blue) 34%);
+  inset-block-start: 0;
+  inset-inline-end: 7px;
+  inline-size: 31px;
+  block-size: 42px;
+  background: linear-gradient(135deg, var(--blue-200) 0 33%, var(--brand) 34%);
   clip-path: polygon(34% 0, 100% 0, 100% 75%, 65% 100%, 65% 28%, 0 28%);
 }
-.eyebrow {
-  color: var(--blue);
-  font:
-    700 12px/1.2 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin: 0 0 7px;
-}
+
+/* -- Dateisteuerung ------------------------------------------------------ */
+
 .file-control {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
+  min-inline-size: 0;
+}
+
+/* Der Dateiname ist Fremddaten und kann beliebig lang sein -- er wird
+   gekuerzt statt den Kopfbereich zu sprengen. */
+.file-name {
+  max-inline-size: 24ch;
+  overflow: hidden;
   color: var(--muted);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.file-control label,
+
+/* -- Buttons ------------------------------------------------------------- */
+
 .button {
   padding: 10px 14px;
   border: 0;
-  background: var(--blue-soft);
-  color: #fff;
-  font:
-    600 15px 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  background: var(--control);
+  color: var(--on-brand);
+  font: 600 15px var(--font-sans);
   transition: background 0.15s ease;
 }
-.file-control label:hover,
+
 .button:hover {
-  background: var(--blue);
+  background: var(--control-hover);
 }
-.about-trigger {
-  border: 0;
+
+.button--compact {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.button--quiet {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  background: var(--control-disabled);
+}
+
+.link-button {
   padding: 8px 4px;
-  color: var(--blue);
+  border: 0;
   background: transparent;
-  font:
-    600 14px 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  color: var(--brand);
+  font: 600 14px var(--font-sans);
 }
-.about-trigger:hover {
+
+.link-button:hover {
   text-decoration: underline;
 }
-.file-control input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  opacity: 0;
+
+/* -- Meldungen ----------------------------------------------------------- */
+
+.notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-inline-start: 4px solid var(--muted);
+  background: var(--surface-sunken);
+  color: var(--ink-soft);
+  font-size: 15px;
 }
-.page {
-  height: calc(100vh - 132px);
-  max-width: 1680px;
-  margin: auto;
-  padding: 20px clamp(16px, 3vw, 48px) 34px;
-  overflow: hidden;
+
+.notice[hidden] {
+  display: none;
 }
+
+.notice[data-variant='warning'] {
+  border-color: var(--warning-ink);
+  background: var(--warning-surface);
+  color: var(--warning-ink);
+}
+
+.notice[data-variant='error'],
+.notice--error {
+  border-color: var(--danger-ink);
+  background: var(--danger-surface);
+  color: var(--danger-ink);
+}
+
+/* -- Startzustand -------------------------------------------------------- */
+
 .upload {
-  border: 1px dashed #8eb4d1;
   padding: 34px;
+  border: 1px dashed var(--line-dashed);
+  background: var(--surface);
   text-align: center;
-  background: #fff;
 }
+
 .upload h2 {
   margin: 0 0 6px;
   font-size: 22px;
 }
+
 .upload p {
   margin: 0;
   color: var(--muted);
 }
-.app {
-  display: none;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-}
+
+/* -- Trefferzeile und Filter --------------------------------------------- */
+
 .summary {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin: 0 0 14px;
+  justify-content: space-between;
   gap: 15px;
+  margin: 0 0 14px;
 }
+
 .summary p {
   margin: 0;
   color: var(--muted);
 }
+
 .summary strong {
   color: var(--ink);
 }
+
+/* Fuenf Spuren fuer fuenf Bedienelemente. Das Suchfeld ist ueber die
+   2fr-Spur breiter, nicht ueber grid-column: span 2 -- damit waeren es sechs
+   Spalteneinheiten in fuenf Spuren und der letzte Filter wuerde umbrechen. */
 .filters {
   display: grid;
   grid-template-columns: 2fr repeat(4, minmax(120px, 1fr));
   gap: 9px;
-  margin-bottom: 18px;
+  margin-block-end: 18px;
 }
+
 .filters input,
 .filters select {
-  width: 100%;
+  inline-size: 100%;
   padding: 11px 12px;
-  background: var(--card);
-  border: 1px solid #b9d0e2;
+  border: 1px solid var(--line-field);
+  background: var(--surface);
   color: var(--ink);
-  outline-color: var(--blue);
 }
-.filters input {
-  grid-column: span 2;
+
+/* -- Nachrichtenliste ---------------------------------------------------- */
+
+.record-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.workspace {
-  display: grid;
-  grid-template-columns: minmax(350px, 0.9fr) minmax(500px, 1.6fr);
-  flex: 1;
-  min-height: 0;
-  border: 1px solid var(--line);
-  background: var(--card);
-  box-shadow: 0 12px 35px #00558f16;
-}
-.list-pane {
-  min-height: 0;
-  border-right: 1px solid var(--line);
-  overflow: auto;
-}
+
 .record {
   display: block;
-  width: 100%;
-  text-align: left;
+  inline-size: 100%;
   padding: 14px 16px;
   border: 0;
-  border-bottom: 1px solid #ebe5da;
+  border-block-end: 1px solid var(--line-soft);
   background: transparent;
   color: inherit;
+  text-align: start;
 }
+
 .record:hover,
-.record.active {
-  background: var(--blue-pale);
+.record[aria-current='true'] {
+  background: var(--surface-highlight);
 }
-.record.active {
-  box-shadow: inset 4px 0 var(--blue);
+
+/* Der ausgewaehlte Zustand haengt am selben Attribut, das ihn ankuendigt --
+   sichtbarer und angekuendigter Zustand koennen nicht auseinanderlaufen. */
+.record[aria-current='true'] {
+  box-shadow: inset 4px 0 var(--brand);
 }
+
+.record:focus-visible {
+  outline-offset: -3px;
+}
+
 .record-top {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font:
-    600 14px 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  font: 600 14px var(--font-sans);
 }
+
 .record-id {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.badge {
-  color: var(--blue);
-}
-.aggregate-badge {
-  display: inline-block;
-  margin-top: 7px;
-  padding: 3px 6px;
-  color: #00517f;
-  background: #d9ebf7;
-  border-left: 3px solid var(--accent);
-  font:
-    700 11px 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
+
 .record-meta {
-  margin-top: 5px;
+  display: block;
+  margin-block-start: 5px;
   color: var(--muted);
   font-size: 13px;
 }
+
+.badge {
+  color: var(--brand);
+}
+
+.aggregate-badge {
+  display: inline-block;
+  margin-block-start: 7px;
+  padding: 3px 6px;
+  border-inline-start: 3px solid var(--accent);
+  background: var(--mark-surface);
+  color: var(--brand-deep);
+  font: 700 11px var(--font-sans);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* -- Seitennavigation ---------------------------------------------------- */
+
 .pager {
+  position: sticky;
+  inset-block-end: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 12px 16px;
-  background: #f5f9fc;
-  border-bottom: 1px solid var(--line);
-  position: sticky;
-  bottom: 0;
+  /* Trennlinie zwischen Liste und Pager, nicht darunter. */
+  border-block-start: 1px solid var(--line);
+  background: var(--surface-sunken);
 }
+
 .pager span {
   color: var(--muted);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
-.pager button {
-  border: 0;
-  padding: 7px 10px;
-  background: var(--blue-soft);
-  color: #fff;
-  font:
-    600 13px 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
-}
-.pager button:disabled {
-  cursor: not-allowed;
-  background: #d5e1ea;
-}
-.detail-pane {
-  min-height: 0;
-  overflow: auto;
-  padding: 24px clamp(18px, 3vw, 38px);
-}
+
+/* -- Detailbereich ------------------------------------------------------- */
+
 .empty {
-  color: var(--muted);
   padding: 40px 5px;
+  color: var(--muted);
   text-align: center;
 }
+
 .detail-head {
   display: flex;
+  align-items: start;
   justify-content: space-between;
   gap: 15px;
-  align-items: start;
-  border-bottom: 2px solid var(--blue);
-  padding-bottom: 16px;
+  padding-block-end: 16px;
+  border-block-end: 2px solid var(--brand);
 }
+
 .detail-head h2 {
   margin: 2px 0 0;
   font-size: 26px;
   letter-spacing: -0.03em;
 }
+
+.eyebrow {
+  margin: 0 0 7px;
+  color: var(--brand);
+  font: 700 12px/1.2 var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .chip {
   display: inline-block;
   padding: 3px 7px;
-  background: var(--blue-pale);
-  color: var(--blue);
-  font:
-    700 12px ui-monospace,
-    Consolas,
-    monospace;
+  background: var(--surface-highlight);
+  color: var(--brand);
+  font: 700 12px var(--font-mono);
 }
+
 .meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px 20px;
   margin: 20px 0 28px;
 }
+
 .meta div {
-  min-width: 0;
+  min-inline-size: 0;
 }
+
 .meta dt {
-  color: var(--blue);
-  font:
-    700 11px 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
-  text-transform: uppercase;
+  color: var(--brand);
+  font: 700 11px var(--font-sans);
   letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
+
 .meta dd {
   margin: 3px 0 0;
   word-break: break-word;
 }
+
+/* -- Tabs ---------------------------------------------------------------- */
+
 .tabs {
   display: flex;
-  gap: 8px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 18px;
+  gap: 22px;
+  margin-block-end: 18px;
+  border-block-end: 1px solid var(--line);
 }
+
 .tab {
   padding: 8px 2px;
-  margin-right: 14px;
   border: 0;
-  border-bottom: 3px solid transparent;
+  border-block-end: 3px solid transparent;
   background: transparent;
   color: var(--muted);
-  font-weight: bold;
+  font-weight: 700;
 }
-.tab.active {
-  color: var(--blue);
-  border-color: var(--blue);
+
+.tab[aria-selected='true'] {
+  border-block-end-color: var(--brand);
+  color: var(--brand);
 }
+
 .message-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 0 0 15px;
 }
+
 .message-tab {
-  border: 1px solid var(--line);
-  background: #fffaf0;
   padding: 5px 8px;
-  font:
-    12px ui-monospace,
-    Consolas,
-    monospace;
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  font: 400 12px var(--font-mono);
 }
-.message-tab.active {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
+
+.message-tab[aria-selected='true'] {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--on-brand);
 }
+
+/* -- Segmente ------------------------------------------------------------ */
+
 .section {
   margin: 0 0 21px;
 }
+
 .section h3 {
   margin: 0 0 8px;
+  color: var(--brand);
   font-size: 16px;
-  color: var(--blue);
 }
+
 .segment {
   display: grid;
-  grid-template-columns: 60px 1fr;
-  border-bottom: 1px solid #eee8dc;
-  padding: 8px 0;
+  grid-template-columns: 60px minmax(0, 1fr);
   gap: 12px;
+  padding: 8px 0;
+  border-block-end: 1px solid var(--line-soft);
 }
+
 .segment code {
-  color: var(--blue);
-  font-weight: bold;
+  color: var(--brand);
+  font-weight: 700;
 }
+
+.segment small {
+  color: var(--ink-soft);
+}
+
 .segment-values {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
+  margin-block-start: 3px;
 }
+
 .value {
   padding: 2px 5px;
-  background: #eff5f9;
-  font:
-    12px ui-monospace,
-    Consolas,
-    monospace;
+  background: var(--value-surface);
+  font: 400 12px var(--font-mono);
   word-break: break-word;
 }
+
 mark {
   padding: 0;
-  background: #d8e9f5;
+  background: var(--mark-surface);
   color: inherit;
 }
+
 pre {
   margin: 0;
   padding: 16px;
+  background: var(--code-surface);
+  color: var(--code-ink);
+  font: 400 12px/1.6 var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: #073e68;
-  color: #edf6fb;
-  font:
-    12px/1.6 ui-monospace,
-    Consolas,
-    monospace;
 }
-.notice {
-  color: var(--muted);
-  font-style: italic;
+
+.notice-inline,
+[role='tabpanel'] > .notice {
+  margin-block-end: 0;
 }
+
+/* == 5. Dialog ============================================================ */
+
 dialog {
-  width: min(690px, calc(100vw - 32px));
-  max-height: min(740px, calc(100vh - 32px));
+  inline-size: min(690px, calc(100vw - 32px));
+  max-block-size: min(740px, calc(100dvh - 32px));
   padding: 0;
   border: 0;
   background: transparent;
   overflow: visible;
-  box-shadow: 0 28px 80px #002b4c66;
+  box-shadow: 0 28px 80px rgb(0 43 76 / 40%);
 }
+
 dialog::backdrop {
-  background: #002b4c99;
+  background: rgb(0 43 76 / 60%);
   backdrop-filter: blur(5px);
 }
+
 .about-card {
   position: relative;
+  background: var(--surface);
   overflow: hidden;
-  background: #fff;
 }
+
 .about-card::before {
   content: '';
   position: absolute;
-  top: -125px;
-  right: -100px;
-  width: 330px;
-  height: 330px;
-  border: 44px solid #d7e8f4;
+  inset-block-start: -125px;
+  inset-inline-end: -100px;
+  inline-size: 330px;
+  block-size: 330px;
+  border: 44px solid var(--blue-100);
   border-radius: 50%;
 }
+
 .about-top {
   position: relative;
   padding: 36px 46px 30px;
-  color: #fff;
-  background: linear-gradient(118deg, #004775, #006da9);
+  background: linear-gradient(118deg, var(--brand-deep), var(--brand-light));
+  color: var(--on-brand);
 }
+
 .about-top::after {
   content: '';
   position: absolute;
-  width: 190px;
-  height: 190px;
-  right: -76px;
-  bottom: -105px;
-  border: 1px solid #8ec5e7;
+  inset-inline-end: -76px;
+  inset-block-end: -105px;
+  inline-size: 190px;
+  block-size: 190px;
+  border: 1px solid var(--blue-300);
   transform: rotate(45deg);
 }
+
 .about-logo {
   position: relative;
   display: inline-block;
-  padding-right: 28px;
-  font:
-    300 29px/1 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  margin: 0;
+  padding-inline-end: 28px;
+  font: 300 29px/1 var(--font-sans);
   letter-spacing: 0.08em;
 }
+
 .about-logo::after {
   content: '';
   position: absolute;
-  top: -2px;
-  right: 0;
-  width: 18px;
-  height: 26px;
-  background: #a9cbe0;
+  inset-block-start: -2px;
+  inset-inline-end: 0;
+  inline-size: 18px;
+  block-size: 26px;
+  background: var(--blue-200);
   clip-path: polygon(32% 0, 100% 0, 100% 75%, 66% 100%, 66% 27%, 0 27%);
 }
+
 .about-top h2 {
   position: relative;
-  max-width: 460px;
+  max-inline-size: 460px;
   margin: 22px 0 0;
-  font:
-    300 clamp(29px, 5vw, 42px) / 1.1 'Bahnschrift',
-    'Segoe UI',
-    sans-serif;
+  font: 300 clamp(29px, 5vw, 42px) / 1.1 var(--font-sans);
   letter-spacing: -0.03em;
 }
+
 .about-close {
   position: absolute;
   z-index: 2;
-  top: 14px;
-  right: 15px;
-  width: 34px;
-  height: 34px;
-  border: 1px solid #ffffff88;
+  inset-block-start: 14px;
+  inset-inline-end: 15px;
+  inline-size: 34px;
+  block-size: 34px;
+  border: 1px solid rgb(255 255 255 / 53%);
   border-radius: 50%;
-  color: #fff;
-  background: #ffffff1f;
+  background: rgb(255 255 255 / 12%);
+  color: var(--on-brand);
   font-size: 23px;
   line-height: 1;
 }
+
 .about-close:hover {
-  background: #fff;
-  color: var(--blue);
+  background: var(--white);
+  color: var(--brand);
 }
+
+.about-close:focus-visible {
+  outline-color: var(--white);
+}
+
 .about-body {
   position: relative;
   padding: 30px 46px 38px;
 }
+
 .about-lead {
-  max-width: 520px;
+  max-inline-size: 520px;
   margin: 0 0 25px;
   font-size: 18px;
   line-height: 1.55;
 }
+
 .about-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  margin: 0;
 }
+
 .about-item {
-  min-height: 125px;
+  min-block-size: 125px;
   padding: 16px;
-  border-top: 3px solid var(--blue-soft);
-  background: #f3f8fb;
+  border-block-start: 3px solid var(--control);
+  background: var(--surface-sunken);
 }
-.about-item strong {
-  display: block;
+
+.about-item dt {
   margin: 0 0 7px;
-  color: var(--blue);
+  color: var(--brand);
   font-size: 14px;
+  font-weight: 700;
 }
-.about-item span {
-  color: #556572;
+
+.about-item dd {
+  margin: 0;
+  color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.35;
 }
+
 .about-foot {
   margin: 25px 0 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  padding-block-start: 18px;
+  border-block-start: 1px solid var(--line);
   color: var(--muted);
   font-size: 13px;
 }
+
+/* == 6. Media Queries ===================================================== */
+
 @media (max-width: 900px) {
+  /* Gestapeltes Layout: hier scrollt das Dokument, nicht die einzelne Spalte. */
   body {
+    block-size: auto;
+    min-block-size: 100dvh;
     overflow: auto;
   }
-  .masthead {
+
+  .masthead-inner {
     align-items: start;
     flex-direction: column;
   }
-  .page {
-    height: auto;
-    overflow: visible;
+
+  .file-control {
+    justify-content: flex-start;
   }
-  .app {
-    height: auto;
-  }
+
+  /* Hier ist span 2 richtig: zwei Spuren, das Suchfeld nimmt die erste
+     Zeile, die vier Filter fuellen die beiden folgenden. */
   .filters {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .filters input {
     grid-column: span 2;
   }
+
   .workspace {
-    grid-template-columns: 1fr;
-    min-height: 670px;
+    grid-template-columns: minmax(0, 1fr);
+    min-block-size: 670px;
   }
+
   .list-pane {
-    max-height: 40vh;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
+    max-block-size: 45vh;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--line);
   }
-  .detail-pane {
-    max-height: none;
-  }
+
   .meta {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .about-top,
   .about-body {
-    padding-left: 26px;
-    padding-right: 26px;
+    padding-inline: 26px;
   }
+
   .about-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .about-item {
+    min-block-size: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

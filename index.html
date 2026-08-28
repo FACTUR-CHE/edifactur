@@ -3,24 +3,61 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Browserbasierter Viewer für JSON-Exporte mit EDIFACT-Nutzlasten. Die Verarbeitung findet ausschließlich lokal im Browser statt."
+    />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2300558f'/%3E%3Cpath d='M11 6h15v15l-8 5V13H6V6z' fill='%23fff'/%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="masthead">
-      <div class="brand" aria-label="FACTUR">
-        <div class="brand-name">FACTUR</div>
-        <p class="brand-tagline">Gemeinsam <span>weiter</span></p>
-        <span class="brand-mark" aria-hidden="true"></span>
+      <div class="masthead-inner">
+        <div class="brand">
+          <span class="brand-name">FACTUR</span>
+          <span class="brand-tagline">Gemeinsam <span>weiter</span></span>
+          <span class="brand-mark" aria-hidden="true"></span>
+        </div>
+        <div class="file-control">
+          <button id="aboutButton" class="link-button" type="button">Über den Viewer</button>
+          <span id="fileName" class="file-name">Keine Datei geladen</span>
+          <button id="fileButton" class="button" type="button">JSON-Datei öffnen</button>
+          <input
+            id="fileInput"
+            class="visually-hidden"
+            type="file"
+            accept="application/json,.json"
+            aria-label="JSON-Datei auswählen"
+            tabindex="-1"
+          />
+        </div>
       </div>
-      <div class="file-control">
-        <button id="aboutButton" class="about-trigger" type="button">Über den Viewer</button
-        ><span id="fileName">Keine Datei geladen</span
-        ><label for="fileInput">JSON-Datei öffnen</label
-        ><input id="fileInput" type="file" accept="application/json,.json" />
+      <div class="masthead-band">
+        <h1 class="masthead-title">EDIFACT Explorer</h1>
       </div>
     </header>
+
     <main class="page">
+      <noscript>
+        <p class="notice notice--error">
+          Dieser Viewer verarbeitet die Datei im Browser und benötigt dafür aktiviertes JavaScript.
+        </p>
+      </noscript>
+
+      <p id="bootError" class="notice notice--error" role="alert" hidden>
+        <strong>Die Anwendung konnte nicht gestartet werden.</strong> Vermutlich fehlen Dateien aus
+        dem Ordner <code>src</code>. Kopieren Sie das Projektverzeichnis vollständig und öffnen Sie
+        <code>index.html</code> erneut.
+      </p>
+
+      <p id="notice" class="notice" role="alert" hidden></p>
+
       <section id="upload" class="upload">
         <h2>Nachrichten lokal analysieren</h2>
         <p>
@@ -28,42 +65,56 @@
           Daten verlassen Ihren Browser nicht.
         </p>
       </section>
-      <section id="app" class="app">
+
+      <section id="app" class="app" aria-label="Nachrichten" hidden>
+        <h2 class="visually-hidden">Geladene Nachrichten</h2>
+
         <div class="summary">
-          <p id="resultInfo"></p>
-          <button id="clearFilters" class="button" type="button">Filter zurücksetzen</button>
+          <p id="resultInfo" role="status"></p>
+          <button id="clearFilters" class="button button--quiet" type="button">
+            Filter zurücksetzen
+          </button>
         </div>
+
         <div class="filters">
           <input
             id="search"
             type="search"
             aria-label="Volltextsuche"
-            placeholder="Volltextsuche: ID, Partner, Referenz, EDIFACT-Wert ..."
-          /><select id="formatFilter" aria-label="Nachrichtenformat filtern">
-            <option value="">Alle Formate</option></select
-          ><select id="directionFilter" aria-label="Nachrichtenrichtung filtern">
-            <option value="">Alle Richtungen</option></select
-          ><select id="statusFilter" aria-label="Verarbeitungsstatus filtern">
-            <option value="">Alle Status</option></select
-          ><select id="categoryFilter" aria-label="Nachrichtenkategorie filtern">
+            placeholder="Volltextsuche: ID, Partner, Referenz, EDIFACT-Wert …"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <select id="formatFilter" aria-label="Nachrichtenformat filtern">
+            <option value="">Alle Formate</option>
+          </select>
+          <select id="directionFilter" aria-label="Nachrichtenrichtung filtern">
+            <option value="">Alle Richtungen</option>
+          </select>
+          <select id="statusFilter" aria-label="Verarbeitungsstatus filtern">
+            <option value="">Alle Status</option>
+          </select>
+          <select id="categoryFilter" aria-label="Nachrichtenkategorie filtern">
             <option value="">Alle Kategorien</option>
           </select>
         </div>
+
         <div class="workspace">
-          <aside id="recordList" class="list-pane" aria-label="Nachrichtenliste"></aside>
+          <nav id="recordList" class="list-pane" aria-label="Nachrichtenliste"></nav>
           <article id="detail" class="detail-pane">
             <p class="empty">Wählen Sie eine Nachricht aus der Liste.</p>
           </article>
         </div>
       </section>
     </main>
+
     <dialog id="aboutDialog" aria-labelledby="aboutTitle">
       <section class="about-card">
         <div class="about-top">
           <button id="aboutClose" class="about-close" type="button" aria-label="Dialog schließen">
             ×
           </button>
-          <div class="about-logo">FACTUR</div>
+          <p class="about-logo">FACTUR</p>
           <h2 id="aboutTitle">EDIFACT transparent machen.</h2>
         </div>
         <div class="about-body">
@@ -71,29 +122,29 @@
             Der EDIFACT Explorer übersetzt Nachrichtendaten in eine übersichtliche Arbeitsansicht
             für den Fachbereich.
           </p>
-          <div class="about-grid">
+          <dl class="about-grid">
             <div class="about-item">
-              <strong>Lokale Verarbeitung</strong
-              ><span
-                >Die ausgewählte Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht
-                übertragen.</span
-              >
+              <dt>Lokale Verarbeitung</dt>
+              <dd>
+                Die ausgewählte Datei wird ausschließlich in Ihrem Browser verarbeitet und nicht
+                übertragen.
+              </dd>
             </div>
             <div class="about-item">
-              <strong>Struktur statt Rohtext</strong
-              ><span
-                >Segmente, Metadaten und mehrere Nachrichten werden klar und durchsuchbar
-                aufbereitet.</span
-              >
+              <dt>Struktur statt Rohtext</dt>
+              <dd>
+                Segmente, Metadaten und mehrere Nachrichten werden klar und durchsuchbar
+                aufbereitet.
+              </dd>
             </div>
             <div class="about-item">
-              <strong>Für den Alltag</strong
-              ><span
-                >Filter, Volltextsuche und eine fokussierte Detailansicht beschleunigen die
-                Recherche.</span
-              >
+              <dt>Für den Alltag</dt>
+              <dd>
+                Filter, Volltextsuche und eine fokussierte Detailansicht beschleunigen die
+                Recherche.
+              </dd>
             </div>
-          </div>
+          </dl>
           <p class="about-foot">
             Version 1.0 · Statischer Fachbereichs-Viewer für JSON-Nachrichten mit
             EDIFACT-Nutzlast.<br /><strong>Powered by FACTUR IT-M</strong>
@@ -101,6 +152,28 @@
         </div>
       </section>
     </dialog>
-    <script src="app.js"></script>
+
+    <!-- Klassische Skripte in Abhaengigkeitsreihenfolge. Bewusst keine
+         ES-Module: die haetten einen HTTP-Ursprung erfordert, womit sich
+         index.html nicht mehr direkt aus dem Dateisystem oeffnen liesse.
+         Jede Datei kapselt sich in einer IIFE und haengt ihre oeffentlichen
+         Namen an den einen Namensraum `EdifactExplorer`. app.js kommt zuletzt,
+         weil es das DOM verdrahtet. -->
+    <script src="src/edifact.js"></script>
+    <script src="src/format.js"></script>
+    <script src="src/records.js"></script>
+    <script src="src/dom.js"></script>
+    <script src="src/render.js"></script>
+    <script src="src/app.js"></script>
+    <script>
+      /* Sicherheitsnetz: ist die Markierung nicht gesetzt, ist der Start
+         fehlgeschlagen -- etwa weil eine Skriptdatei fehlt. Ohne diesen
+         Hinweis waere die Seite sichtbar, aber ohne Funktion. */
+      document.addEventListener('DOMContentLoaded', function () {
+        if (document.documentElement.dataset.appReady === 'true') return;
+        document.getElementById('bootError').hidden = false;
+        document.getElementById('upload').hidden = true;
+      });
+    </script>
   </body>
 </html>
