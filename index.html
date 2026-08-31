@@ -28,6 +28,15 @@
           <button id="aboutButton" class="link-button" type="button">Über den Viewer</button>
           <span id="fileName" class="file-name">Keine Datei geladen</span>
           <button id="fileButton" class="button" type="button">JSON-Datei öffnen</button>
+          <button
+            id="entryModeButton"
+            class="button button-quiet"
+            type="button"
+            aria-controls="entryMode"
+            aria-expanded="false"
+          >
+            Nachricht eingeben
+          </button>
           <input
             id="fileInput"
             class="visually-hidden"
@@ -64,6 +73,45 @@
           Öffnen Sie eine JSON-Datei mit einer <code>value</code>-Liste und EDIFACT-Nutzlasten. Die
           Daten verlassen Ihren Browser nicht.
         </p>
+      </section>
+
+      <section id="entryMode" class="entry-mode" aria-labelledby="entryModeTitle" hidden>
+        <div class="entry-panel">
+          <div class="entry-mode-head">
+            <div>
+              <p class="eyebrow">Nachricht hinzufuegen</p>
+              <h2 id="entryModeTitle">Nachricht eingeben</h2>
+            </div>
+            <button id="entryCloseButton" class="button button-quiet" type="button">
+              Eingabe schliessen
+            </button>
+          </div>
+          <div class="entry-format">
+            <label for="inputFormat">Eingabeformat</label>
+            <select id="inputFormat">
+              <option value="edifact">EDIFACT</option>
+            </select>
+          </div>
+          <p id="inputFormatHelp" class="entry-help">
+            Fuegen Sie eine vollstaendige EDIFACT-Nachricht mit Segmentabschluss ein.
+          </p>
+          <div class="entry-mode-form">
+            <label class="visually-hidden" for="messageInput">Nachrichteninhalt</label>
+            <textarea
+              id="messageInput"
+              class="entry-mode-input"
+              rows="16"
+              placeholder="UNB+...&#10;UNH+1+UTILMD:D:11A:UN'&#10;BGM+E01+1'&#10;UNT+3+1'&#10;UNZ+1+...'"
+              aria-describedby="inputFormatHelp"
+              spellcheck="false"
+            ></textarea>
+          </div>
+          <div class="entry-mode-actions">
+            <button id="messageAddButton" class="button" type="button">
+              Nachricht hinzufuegen
+            </button>
+          </div>
+        </div>
       </section>
 
       <section id="app" class="app" aria-label="Nachrichten" hidden>

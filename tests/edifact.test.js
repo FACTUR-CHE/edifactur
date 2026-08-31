@@ -14,6 +14,7 @@ const {
   readDelimiters,
   segmentLabel,
   splitEdifact,
+  validateEdifactSyntax,
 } = globalThis.EdifactExplorer;
 
 describe('splitEdifact', () => {
@@ -175,5 +176,35 @@ describe('parseEdifact', () => {
   it('faellt auf UNKNOWN_MESSAGE_TYPE zurueck, wenn UNH keinen Typ nennt', () => {
     const [group] = parseEdifact("UNH+1'");
     assert.equal(group.type, UNKNOWN_MESSAGE_TYPE);
+  });
+});
+
+describe('validateEdifactSyntax', () => {
+  it('akzeptiert eine vollstaendige Nachricht', () => {
+    const result = validateEdifactSyntax("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1'");
+
+    assert.equal(result.ok, true);
+    assert.equal(result.messages.length, 1);
+  });
+
+  it('verlangt einen Segmentabschluss', () => {
+    assert.deepEqual(validateEdifactSyntax("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1"), {
+      ok: false,
+      error: 'Die Nachricht muss mit dem Segmenttrenner "\'" enden.',
+    });
+  });
+
+  it('lehnt offene UNH-Nachrichten ab', () => {
+    assert.deepEqual(validateEdifactSyntax("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'"), {
+      ok: false,
+      error: 'Fuer UNH 1 fehlt ein abschliessendes UNT.',
+    });
+  });
+
+  it('lehnt unpassende UNH- und UNT-Referenzen ab', () => {
+    assert.deepEqual(validateEdifactSyntax("UNH+1+UTILMD:D:11A:UN'UNT+2+9'"), {
+      ok: false,
+      error: 'UNH/UNT-Referenzen passen nicht zusammen (1 / 9).',
+    });
   });
 });

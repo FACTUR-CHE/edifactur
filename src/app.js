@@ -36,12 +36,34 @@
     ArrowUp: -1,
   });
 
+  /**
+   * Registrierung der manuell unterstuetzten Eingabeformate. Neue Formate
+   * benoetigen nur einen Eintrag mit Validierung und Record-Erzeugung.
+   */
+  const INPUT_FORMATS = Object.freeze({
+    edifact: Object.freeze({
+      label: 'EDIFACT',
+      help: 'Fuegen Sie eine vollstaendige EDIFACT-Nachricht mit Segmentabschluss ein.',
+      placeholder: "UNB+...\nUNH+1+UTILMD:D:11A:UN'\nBGM+E01+1'\nUNT+3+1'\nUNZ+1+...'",
+      validate: ns.validateEdifactSyntax,
+      create: ns.createRecordFromEdifact,
+      fallbackId: 'manuell',
+    }),
+  });
+
   const ELEMENT_IDS = Object.freeze([
     'fileButton',
     'fileInput',
     'fileName',
+    'entryModeButton',
     'notice',
     'upload',
+    'entryMode',
+    'entryCloseButton',
+    'inputFormat',
+    'inputFormatHelp',
+    'messageInput',
+    'messageAddButton',
     'app',
     'resultInfo',
     'clearFilters',
@@ -104,6 +126,43 @@
   function hideNotice() {
     dom.notice.hidden = true;
     dom.notice.textContent = '';
+  }
+
+  function resetManualInput() {
+    dom.messageInput.value = '';
+  }
+
+  function setView(view) {
+    dom.upload.hidden = view !== 'start';
+    dom.entryMode.hidden = view !== 'entry';
+    dom.app.hidden = view !== 'viewer';
+
+    const isEntryMode = view === 'entry';
+    dom.entryModeButton.setAttribute('aria-expanded', String(isEntryMode));
+    dom.entryModeButton.textContent = isEntryMode ? 'Eingabe schliessen' : 'Nachricht eingeben';
+
+    if (isEntryMode) dom.messageInput.focus();
+  }
+
+  function openEntryMode() {
+    hideNotice();
+    setView('entry');
+  }
+
+  function closeEntryMode() {
+    setView(state.records.length > 0 ? 'viewer' : 'start');
+  }
+
+  function currentInputFormat() {
+    return INPUT_FORMATS[dom.inputFormat.value] ?? null;
+  }
+
+  function updateInputFormat() {
+    const format = currentInputFormat();
+    if (!format) return;
+
+    dom.inputFormatHelp.textContent = format.help;
+    dom.messageInput.placeholder = format.placeholder;
   }
 
   /**
@@ -234,13 +293,54 @@
     state.page = 0;
 
     resetControls();
+    resetManualInput();
     fillFilterOptions();
 
     dom.fileName.textContent = fileName;
-    dom.upload.hidden = true;
-    dom.app.hidden = false;
+    setView('viewer');
 
     applyFilters();
+  }
+
+  /** Fuegt eine manuell eingegebene Nachricht zum Bestand hinzu. */
+  function addManualRecord() {
+    const format = currentInputFormat();
+    if (!format) {
+      showNotice('Das gewaehlte Eingabeformat wird nicht unterstuetzt.', 'error');
+      return;
+    }
+
+    const text = dom.messageInput.value;
+    const validation = format.validate(text);
+    if (!validation.ok) {
+      showNotice(validation.error, 'error');
+      return;
+    }
+
+    const trimmed = text.trim();
+    const record = format.create(trimmed, format.fallbackId);
+    record.id = ns.uniqueRecordId(record.id, new Set(state.records.map((entry) => entry.id)));
+
+    state.records = [record, ...state.records];
+    state.selectedId = record.id;
+    state.activeTab = 'structured';
+    state.activeMessage = 0;
+    state.page = 0;
+
+    fillFilterOptions();
+    dom.fileName.textContent =
+      state.records.length === 1 ? 'Manuell eingefuegte Nachricht' : 'Gemischte Datenquelle';
+    applyFilters({ resetPage: true });
+    resetManualInput();
+    setView('viewer');
+
+    const messageCount = record.derived.messageCount || record.derived.messages.length;
+    showNotice(
+      `${format.label}-Nachricht hinzugefuegt. ${messageCount} Nachricht${
+        messageCount === 1 ? '' : 'en'
+      } erkannt.`,
+      'info',
+    );
   }
 
   // --- Datei-Auswahl -------------------------------------------------------
@@ -259,6 +359,20 @@
 
     // Zuruecksetzen, damit dieselbe Datei erneut ausgewaehlt werden kann.
     input.value = '';
+  });
+
+  dom.messageAddButton.addEventListener('click', addManualRecord);
+  dom.entryModeButton.addEventListener('click', () => {
+    if (dom.entryMode.hidden) openEntryMode();
+    else closeEntryMode();
+  });
+  dom.entryCloseButton.addEventListener('click', closeEntryMode);
+  dom.inputFormat.addEventListener('change', updateInputFormat);
+  dom.messageInput.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      addManualRecord();
+    }
   });
 
   // --- Suche und Filter ----------------------------------------------------

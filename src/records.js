@@ -100,10 +100,66 @@
 
     return list.map((source, index) => {
       const record = normalizeRecord(source, `datensatz-${index + 1}`);
-      if (used.has(record.id)) record.id = `${record.id} (${index + 1})`;
-      used.add(record.id);
+      record.id = uniqueRecordId(record.id, used);
       return record;
     });
+  }
+
+  /**
+   * Macht eine Kennung gegen bereits verwendete IDs eindeutig.
+   *
+   * @param {string} candidate
+   * @param {Set<string>} used
+   * @returns {string}
+   */
+  function uniqueRecordId(candidate, used) {
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      return candidate;
+    }
+
+    let suffix = 2;
+    let next = `${candidate} (${suffix})`;
+    while (used.has(next)) {
+      suffix += 1;
+      next = `${candidate} (${suffix})`;
+    }
+    used.add(next);
+    return next;
+  }
+
+  /**
+   * Baut aus einer rohen EDIFACT-Nachricht einen Datensatz im Viewer-Format.
+   *
+   * @param {string} payload
+   * @param {string} fallbackId
+   * @returns {Record}
+   */
+  function createRecordFromEdifact(payload, fallbackId) {
+    const messages = ns.parseEdifact(payload);
+    const businessMessage = messages.find((message) =>
+      message.segments.some((segment) => segment.tag === 'UNH'),
+    );
+    const segments = businessMessage?.segments ?? messages[0]?.segments ?? [];
+    const unh = segments.find((segment) => segment.tag === 'UNH');
+    const bgm = segments.find((segment) => segment.tag === 'BGM');
+    const messageType = businessMessage?.type;
+    const messageId = unh?.elements[0] || fallbackId;
+    const messageCategory = bgm?.elements[0]?.split(':')[0] ?? '';
+
+    return normalizeRecord(
+      {
+        ID: fallbackId,
+        messageID: messageId,
+        messageFormat:
+          typeof messageType === 'string' && messageType !== ns.UNKNOWN_MESSAGE_TYPE
+            ? messageType
+            : '',
+        messageCategory,
+        payload: { payload },
+      },
+      fallbackId,
+    );
   }
 
   /**
@@ -187,6 +243,8 @@
   ns.isPlainRecord = isPlainRecord;
   ns.normalizeRecord = normalizeRecord;
   ns.normalizeRecords = normalizeRecords;
+  ns.uniqueRecordId = uniqueRecordId;
+  ns.createRecordFromEdifact = createRecordFromEdifact;
   ns.extractOptionValues = extractOptionValues;
   ns.filterRecords = filterRecords;
   ns.clampPage = clampPage;

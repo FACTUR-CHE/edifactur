@@ -213,6 +213,79 @@
     }));
   }
 
+  /**
+   * Fuehrt einen bewusst einfachen Syntax-Check fuer eingeklebte
+   * EDIFACT-Nachrichten aus. Geprueft werden grundlegende Segmentstruktur,
+   * Abschluss mit Segmenttrenner sowie paarige UNH/UNT-Abschnitte.
+   *
+   * @param {unknown} source
+   * @returns {{ok: true, messages: object[], delimiters: object}|{ok: false, error: string}}
+   */
+  function validateEdifactSyntax(source) {
+    if (typeof source !== 'string' || source.trim().length === 0) {
+      return { ok: false, error: 'Bitte eine EDIFACT-Nachricht einfuegen.' };
+    }
+
+    const trimmed = source.trim();
+    const delimiters = readDelimiters(trimmed);
+    if (!trimmed.endsWith(delimiters.segment)) {
+      return {
+        ok: false,
+        error: `Die Nachricht muss mit dem Segmenttrenner "${delimiters.segment}" enden.`,
+      };
+    }
+
+    const messages = parseEdifact(trimmed);
+    if (messages.length === 0) {
+      return { ok: false, error: 'Es konnten keine EDIFACT-Segmente erkannt werden.' };
+    }
+
+    const segments = messages
+      .flatMap((message) => message.segments)
+      .filter((segment) => segment.tag !== 'UNA');
+    if (segments.length === 0) {
+      return { ok: false, error: 'Die Nachricht enthaelt keine verwertbaren EDIFACT-Segmente.' };
+    }
+
+    let openMessage = null;
+
+    for (const segment of segments) {
+      if (!/^[A-Z0-9]{3}$/.test(segment.tag)) {
+        return { ok: false, error: `Ungueltiges Segment-Tag "${segment.tag}" erkannt.` };
+      }
+
+      if (segment.tag === 'UNH') {
+        if (openMessage !== null) {
+          return { ok: false, error: 'Vor dem naechsten UNH fehlt ein abschliessendes UNT.' };
+        }
+        openMessage = segment.elements[0] ?? '';
+      }
+
+      if (segment.tag === 'UNT') {
+        if (openMessage === null) {
+          return { ok: false, error: 'UNT ohne vorheriges UNH erkannt.' };
+        }
+        const reference = segment.elements[1] ?? '';
+        if (reference && openMessage && reference !== openMessage) {
+          return {
+            ok: false,
+            error: `UNH/UNT-Referenzen passen nicht zusammen (${openMessage} / ${reference}).`,
+          };
+        }
+        openMessage = null;
+      }
+    }
+
+    if (openMessage !== null) {
+      return {
+        ok: false,
+        error: `Fuer UNH ${openMessage || ''} fehlt ein abschliessendes UNT.`.trim(),
+      };
+    }
+
+    return { ok: true, messages, delimiters };
+  }
+
   ns.DEFAULT_DELIMITERS = DEFAULT_DELIMITERS;
   ns.SEGMENT_LABELS = SEGMENT_LABELS;
   ns.UNKNOWN_SEGMENT_LABEL = UNKNOWN_SEGMENT_LABEL;
@@ -222,4 +295,5 @@
   ns.readDelimiters = readDelimiters;
   ns.splitEdifact = splitEdifact;
   ns.parseEdifact = parseEdifact;
+  ns.validateEdifactSyntax = validateEdifactSyntax;
 })((globalThis.EdifactExplorer ??= {}));

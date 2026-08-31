@@ -8,6 +8,7 @@ import '../src/records.js';
 // Seiteneffekt geladen und legen ihre Namen im Namensraum ab.
 const {
   clampPage,
+  createRecordFromEdifact,
   extractOptionValues,
   filterRecords,
   isPlainRecord,
@@ -115,6 +116,21 @@ describe('normalizeRecords', () => {
       records.map((record) => record.id),
       ['datensatz-1', 'datensatz-2'],
     );
+  });
+});
+
+describe('createRecordFromEdifact', () => {
+  it('leitet zentrale Metadaten aus der Nachricht ab', () => {
+    const record = createRecordFromEdifact(
+      "UNH+ABC123+UTILMD:D:11A:UN'BGM+E01+4711'UNT+3+ABC123'",
+      'manuell',
+    );
+
+    assert.equal(record.id, 'manuell');
+    assert.equal(record.source.messageID, 'ABC123');
+    assert.equal(record.source.messageFormat, 'UTILMD');
+    assert.equal(record.source.messageCategory, 'E01');
+    assert.equal(record.derived.messageCount, 1);
   });
 });
 
