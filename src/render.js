@@ -409,23 +409,62 @@
    * @param {string} segmentSeparator
    * @returns {HTMLElement}
    */
+  /**
+   * Zeichnet eine Komponente als Zeile aus Nummer, Bezeichnung und Wert.
+   *
+   * Ist die Position nicht hinterlegt, tritt die Positionsangabe an die Stelle
+   * der Bezeichnung. Eine erfundene Bezeichnung waere schlechter als eine
+   * ehrliche Positionsnummer.
+   *
+   * @param {string} tag
+   * @param {number} element   Elementposition, nullbasiert.
+   * @param {number} component Komponentenposition, nullbasiert.
+   * @param {string} value
+   * @param {boolean} split    Ob das Element mehrere Komponenten hat.
+   * @param {string} query
+   * @returns {HTMLElement}
+   */
+  function componentRow(tag, element, component, value, split, query) {
+    const definition = ns.dataElement(tag, element, component);
+    const position = split ? `${element + 1}.${component + 1}` : `${element + 1}`;
+    const name = definition ? definition.name : `Element ${position}`;
+    const reference = definition?.code || position;
+
+    return ns.el('div', { class: 'component' }, [
+      ns.el('dt', {}, [
+        ns.el('code', { class: 'de', text: reference }),
+        ns.el('span', { text: name }),
+      ]),
+      ns.el(
+        'dd',
+        {},
+        value
+          ? [
+              ns.el(
+                'button',
+                {
+                  class: 'value value-copy',
+                  type: 'button',
+                  dataset: { copy: value, copyLabel: `${reference} ${name}` },
+                  title: 'Wert kopieren',
+                },
+                ns.highlighted(value, query),
+              ),
+            ]
+          : [ns.el('span', { class: 'value value-empty', text: ns.EMPTY_ELEMENT })],
+      ),
+    ]);
+  }
+
   function segmentRow(segment, query, segmentSeparator) {
     const label = ns.segmentLabel(segment.tag);
 
-    const values = segment.elements.map((value, index) =>
-      value
-        ? ns.el(
-            'button',
-            {
-              class: 'value value-copy',
-              type: 'button',
-              dataset: { copy: value, copyLabel: `Element ${index + 1}` },
-              title: `Element ${index + 1} kopieren`,
-            },
-            ns.highlighted(value, query),
-          )
-        : ns.el('span', { class: 'value', title: `Element ${index + 1}` }, [ns.EMPTY_ELEMENT]),
-    );
+    const rows = segment.components.flatMap((components, element) => {
+      const split = components.length > 1;
+      return components.map((value, component) =>
+        componentRow(segment.tag, element, component, value, split, query),
+      );
+    });
 
     return ns.el('div', { class: 'segment' }, [
       ns.el('button', {
@@ -440,7 +479,7 @@
       }),
       ns.el('div', {}, [
         ns.el('small', { text: label }),
-        values.length > 0 ? ns.el('div', { class: 'segment-values' }, values) : null,
+        rows.length > 0 ? ns.el('dl', { class: 'segment-components' }, rows) : null,
       ]),
     ]);
   }
