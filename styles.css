@@ -499,6 +499,14 @@ pre {
   color: var(--ink);
 }
 
+/* Beide Filterzeilen teilen sich ein Raster: die Zeitraumfelder stehen unter
+   den Auswahlfeldern in denselben Spuren, nicht in einem eigenen Kasten. */
+.filter-bar {
+  display: grid;
+  gap: 10px;
+  margin-block-end: 18px;
+}
+
 /* Fuenf Spuren fuer fuenf Bedienelemente. Das Suchfeld ist ueber die
    2fr-Spur breiter, nicht ueber grid-column: span 2 -- damit waeren es sechs
    Spalteneinheiten in fuenf Spuren und der letzte Filter wuerde umbrechen. */
@@ -506,7 +514,6 @@ pre {
   display: grid;
   grid-template-columns: 2fr repeat(4, minmax(120px, 1fr));
   gap: 9px;
-  margin-block-end: 18px;
 }
 
 .filters input,
@@ -520,49 +527,48 @@ pre {
 
 /* -- Zeitraumfilter ------------------------------------------------------- */
 
-.range-filter {
-  display: flex;
-  flex-wrap: wrap;
+/* Die Beschriftungen sitzen ueber den Feldern und machen die Zeile hoeher als
+   die obere. `end` haelt die Eingabefelder beider Zeilen trotzdem auf einer
+   Linie. */
+.filters-range {
   align-items: end;
-  gap: 9px;
-  margin: 0 0 18px;
-  padding: 12px 14px;
-  border: 1px solid var(--line-soft);
 }
 
-.range-filter legend {
-  padding-inline: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.range-zone {
-  font-weight: 400;
-  color: var(--ink-soft);
-}
-
-.range-field {
+.field {
   display: grid;
-  gap: 3px;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  gap: 4px;
+  margin: 0;
 }
 
-.range-filter select,
-.range-filter input {
-  padding: 9px 12px;
-  border: 1px solid var(--line-field);
-  background: var(--surface);
-  color: var(--ink);
+/* Dieselbe Auszeichnung wie die Rubriken im Detailbereich -- nur kleiner,
+   weil sie hier ein Eingabefeld beschriftet und es nicht ueberstimmen soll. */
+.field-label {
+  color: var(--brand);
+  font: 700 11px/1.2 var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Fuellt die beiden freien Spuren rechts und beantwortet die Frage, die ein
+   Datumsfeld sonst offen laesst: nach welcher Uhr wird gefiltert. */
+.range-zone {
+  grid-column: 4 / -1;
+  margin: 0;
+
+  /* Feldpolsterung plus Rahmen: der Hinweis sitzt damit auf der Schriftlinie
+     der Eingabefelder und nicht auf deren Unterkante. */
+  padding-block-end: 12px;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
 }
 
 /* Volle Zeilenbreite: der Hinweis erklaert die Trefferzahl und darf nicht
    neben den Feldern eingequetscht werden. */
 .range-hint {
-  flex-basis: 100%;
+  grid-column: 1 / -1;
   margin: 0;
-  font-size: 0.85rem;
   color: var(--ink-soft);
+  font-size: 0.85rem;
 }
 
 .range-hint[data-variant='warning'] {
@@ -1254,7 +1260,14 @@ dialog::backdrop {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filters input {
+  .filters > input {
+    grid-column: span 2;
+  }
+
+  /* Die Schnellauswahl ueber die volle Breite, Von und Bis nebeneinander --
+     zwei halbe Datumsfelder sind noch bedienbar, ein Viertel nicht mehr. */
+  .filters-range > .field:first-child,
+  .range-zone {
     grid-column: span 2;
   }
 
