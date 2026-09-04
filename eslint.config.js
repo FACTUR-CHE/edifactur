@@ -33,4 +33,17 @@ export default [
       'no-console': 'error',
     },
   },
+  {
+    // Werkzeuge fuer die Entwicklung. Sie laufen unter Node, und ihre
+    // Ausgabe ist der Zweck -- no-console gilt hier nicht.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      'no-console': 'off',
+    },
+  },
 ];

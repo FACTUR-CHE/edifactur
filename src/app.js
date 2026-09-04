@@ -73,6 +73,7 @@
     'aboutButton',
     'aboutDialog',
     'aboutClose',
+    'appVersion',
     ...FILTERS.map((filter) => filter.id),
   ]);
 
@@ -632,6 +633,28 @@
   });
 
   // --- Info-Dialog ---------------------------------------------------------
+
+  /**
+   * Traegt die Programmversion in den Info-Dialog ein.
+   *
+   * Die Version steht im Meta-Tag `application-version`, geschrieben von
+   * `npm run version:sync` aus `package.json`. Die Datei selbst zur Laufzeit
+   * zu lesen ist keine Option: `fetch` verlangt einen HTTP-Ursprung, und der
+   * Viewer soll sich per Doppelklick aus dem Dateisystem oeffnen lassen.
+   *
+   * Fehlt das Meta-Tag, bleibt die Zeile ohne Versionsangabe. Eine veraltete
+   * oder erfundene Nummer waere schlechter als keine.
+   */
+  function showVersion() {
+    const version = document
+      .querySelector('meta[name="application-version"]')
+      ?.getAttribute('content')
+      ?.trim();
+
+    dom.appVersion.textContent = version ? `Version ${version} · ` : '';
+  }
+
+  showVersion();
 
   dom.aboutButton.addEventListener('click', () => dom.aboutDialog.showModal());
   dom.aboutClose.addEventListener('click', () => dom.aboutDialog.close());

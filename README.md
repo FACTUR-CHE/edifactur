@@ -44,11 +44,18 @@ npm run lint       # ESLint
 npm run lint:css   # Stylelint für CSS
 npm run format     # Prettier schreibt
 npm run format:check
+npm run version:sync # schreibt die Version aus package.json nach index.html
 ```
 
 `npm test` braucht kein `npm install`, weil der Testrunner Teil von Node ist. Getestet wird die
 reine Logik: Parser, Datensatzmodell und Formatierung. Die Darstellungsschicht wird nicht
 unit-getestet — sie erzeugt DOM-Knoten und wird im Browser geprüft.
+
+Die Programmversion steht in `package.json` und wird von dort in das Meta-Tag
+`application-version` in [index.html](index.html) geschrieben. Der Info-Dialog liest sie beim Start
+aus dem Dokument. `package.json` zur Laufzeit zu lesen ist ausgeschlossen: `fetch` verlangt einen
+HTTP-Ursprung, und der Viewer soll per Doppelklick startbar bleiben. Laufen die beiden Werte
+auseinander, schlägt [tests/version.test.js](tests/version.test.js) an.
 
 ## Aufbau des JavaScript
 

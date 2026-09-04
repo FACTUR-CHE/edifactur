@@ -8,6 +8,9 @@
       content="Browserbasierter Viewer für JSON-Exporte mit EDIFACT-Nutzlasten. Die Verarbeitung findet ausschließlich lokal im Browser statt."
     />
     <meta name="color-scheme" content="light" />
+    <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
+         schlaegt an, wenn die beiden auseinanderlaufen. -->
+    <meta name="application-version" content="1.0.2" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -194,7 +197,7 @@
             </div>
           </dl>
           <p class="about-foot">
-            Version 1.0 · Statischer Fachbereichs-Viewer für JSON-Nachrichten mit
+            <span id="appVersion"></span>Statischer Fachbereichs-Viewer für JSON-Nachrichten mit
             EDIFACT-Nutzlast.<br /><strong>Powered by FACTUR IT-M</strong>
           </p>
         </div>
