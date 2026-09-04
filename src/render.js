@@ -245,6 +245,36 @@
    * @param {string} query
    * @returns {HTMLElement}
    */
+  /**
+   * Listet Pruefbefunde auf.
+   *
+   * @param {object[]} findings
+   * @param {string} label Barrierefreier Name der Liste.
+   * @returns {HTMLElement|null} Null, wenn es nichts zu melden gibt.
+   */
+  function findingList(findings, label) {
+    if (findings.length === 0) return null;
+
+    return ns.el(
+      'ul',
+      { class: 'findings', 'aria-label': label },
+      findings.map((finding) =>
+        ns.el('li', { class: `finding finding-${finding.level}`, text: finding.message }),
+      ),
+    );
+  }
+
+  /**
+   * @param {object} record
+   * @param {number|null} messageIndex `null` fuer den Austausch als Ganzes.
+   * @returns {object[]}
+   */
+  function findingsFor(record, messageIndex) {
+    return (record.derived.findings ?? []).filter(
+      (finding) => finding.messageIndex === messageIndex,
+    );
+  }
+
   function segmentRow(segment, query) {
     const label = ns.segmentLabel(segment.tag);
 
@@ -291,6 +321,7 @@
       ns.el('h3', {
         text: `${message.type} · ${ns.formatCount(message.segments.length)} Segmente`,
       }),
+      findingList(findingsFor(record, index), 'Befunde dieser Nachricht'),
       ...message.segments.map((segment) => segmentRow(segment, query)),
     ]);
 
@@ -383,6 +414,9 @@
     ns.append(container, [
       head,
       meta,
+      // Befunde zum Austausch als Ganzes stehen ueber der Ansichtsumschaltung,
+      // damit sie auch in der Rohdatenansicht sichtbar bleiben.
+      findingList(findingsFor(record, null), 'Befunde des Austauschs'),
       bar,
       tabpanel(VIEW_PANEL_ID, `view-tab-${activeIndex}`, isRaw, body),
     ]);

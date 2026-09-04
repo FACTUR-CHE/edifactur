@@ -348,6 +348,106 @@
     return { ok: true, messages, delimiters };
   }
 
+  /**
+   * Vergleicht einen einzelnen Zaehler mit dem gezaehlten Wert.
+   *
+   * @param {object} options
+   * @param {string} options.tag           Segment, das den Zaehler nennt.
+   * @param {string} options.element       Datenelement, z. B. "DE 0074".
+   * @param {string} options.unit          Gezaehlte Einheit fuer die Meldung.
+   * @param {unknown} options.stated       Wert aus der Nachricht.
+   * @param {number} options.actual        Tatsaechlich gezaehlter Wert.
+   * @param {number|null} options.messageIndex
+   * @returns {object[]} Leer, wenn der Zaehler stimmt.
+   */
+  function counterFindings({ tag, element, unit, stated, actual, messageIndex }) {
+    const finding = (message) => [{ level: 'error', messageIndex, message }];
+    const value = typeof stated === 'string' ? stated.trim() : '';
+
+    if (value.length === 0) {
+      return finding(`${tag} nennt keinen Zähler (${element}). Erwartet: ${actual} ${unit}.`);
+    }
+
+    if (!/^\d+$/.test(value)) {
+      return finding(
+        `Der Zähler in ${tag} (${element}) ist nicht numerisch: "${value}". Erwartet: ${actual} ${unit}.`,
+      );
+    }
+
+    if (Number(value) !== actual) {
+      return finding(`${tag} nennt ${value} ${unit}, tatsächlich enthalten: ${actual}.`);
+    }
+
+    return [];
+  }
+
+  /**
+   * Prueft die Zaehler in UNT und UNZ gegen die tatsaechliche Struktur.
+   *
+   * UNT DE 0074 nennt die Anzahl der Segmente der Nachricht einschliesslich
+   * UNH und UNT, UNZ DE 0036 die Anzahl der Nachrichten im Austausch. An
+   * diesen beiden Werten scheitern Nachrichten beim Marktpartner mit
+   * negativem CONTRL.
+   *
+   * Ein falscher Zaehler ist ein Befund, kein Abbruchgrund. Eine fehlerhafte
+   * Nachricht wird gerade deshalb geoeffnet, um den Fehler zu sehen -- die
+   * Pruefung liefert deshalb eine Liste und verwirft nichts.
+   *
+   * @param {object[]} groups Ergebnis von parseEdifact.
+   * @returns {{level: string, message: string, messageIndex: number|null}[]}
+   *   `messageIndex` verweist auf die Gruppe in `groups`, `null` steht fuer
+   *   den Austausch als Ganzes.
+   */
+  function checkCounters(groups) {
+    if (!Array.isArray(groups)) return [];
+
+    const findings = [];
+    let messageCount = 0;
+
+    groups.forEach((group, index) => {
+      // Der UNA-Header ist eine Vorgabe, kein Segment der Nachricht.
+      const segments = group.segments.filter((segment) => segment.tag !== 'UNA');
+      if (!segments.some((segment) => segment.tag === 'UNH')) return;
+
+      messageCount += 1;
+
+      // Ein fehlendes UNT meldet validateEdifactSyntax als Strukturfehler.
+      // Ohne Abschluss gibt es keinen Zaehler, der zu pruefen waere.
+      const trailer = segments.find((segment) => segment.tag === 'UNT');
+      if (!trailer) return;
+
+      findings.push(
+        ...counterFindings({
+          tag: 'UNT',
+          element: 'DE 0074',
+          unit: 'Segmente',
+          stated: trailer.elements[0],
+          actual: segments.length,
+          messageIndex: index,
+        }),
+      );
+    });
+
+    const interchangeTrailer = groups
+      .flatMap((group) => group.segments)
+      .find((segment) => segment.tag === 'UNZ');
+
+    if (interchangeTrailer) {
+      findings.push(
+        ...counterFindings({
+          tag: 'UNZ',
+          element: 'DE 0036',
+          unit: 'Nachrichten',
+          stated: interchangeTrailer.elements[0],
+          actual: messageCount,
+          messageIndex: null,
+        }),
+      );
+    }
+
+    return findings;
+  }
+
   ns.DEFAULT_DELIMITERS = DEFAULT_DELIMITERS;
   ns.SEGMENT_LABELS = SEGMENT_LABELS;
   ns.UNKNOWN_SEGMENT_LABEL = UNKNOWN_SEGMENT_LABEL;
@@ -360,4 +460,5 @@
   ns.unescapeEdifact = unescapeEdifact;
   ns.parseEdifact = parseEdifact;
   ns.validateEdifactSyntax = validateEdifactSyntax;
+  ns.checkCounters = checkCounters;
 })((globalThis.EdifactExplorer ??= {}));

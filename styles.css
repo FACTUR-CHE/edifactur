@@ -722,6 +722,36 @@ pre {
   font-size: 16px;
 }
 
+.findings {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.finding {
+  padding: 10px 14px;
+  border-inline-start: 4px solid var(--muted);
+  background: var(--surface-sunken);
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.finding + .finding {
+  margin-block-start: 6px;
+}
+
+.finding-warning {
+  border-color: var(--warning-ink);
+  background: var(--warning-surface);
+  color: var(--warning-ink);
+}
+
+.finding-error {
+  border-color: var(--danger-ink);
+  background: var(--danger-surface);
+  color: var(--danger-ink);
+}
+
 .segment {
   display: grid;
   grid-template-columns: 60px minmax(0, 1fr);

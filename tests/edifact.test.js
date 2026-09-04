@@ -9,6 +9,7 @@ const {
   DEFAULT_DELIMITERS,
   UNKNOWN_MESSAGE_TYPE,
   UNKNOWN_SEGMENT_LABEL,
+  checkCounters,
   hasUnaHeader,
   parseEdifact,
   readDelimiters,
@@ -299,5 +300,88 @@ describe('validateEdifactSyntax', () => {
       ok: false,
       error: 'UNH/UNT-Referenzen passen nicht zusammen (1 / 9).',
     });
+  });
+});
+
+describe('checkCounters', () => {
+  const messages = (payload) => checkCounters(parseEdifact(payload));
+
+  it('meldet nichts bei stimmigen Zaehlern', () => {
+    assert.deepEqual(
+      messages("UNB+UNOC:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1'UNZ+1+REF'"),
+      [],
+    );
+  });
+
+  it('meldet einen zu niedrigen Segmentzaehler mit Soll und Ist', () => {
+    const [finding] = messages("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+2+1'");
+
+    assert.equal(finding.level, 'error');
+    assert.equal(finding.messageIndex, 0);
+    assert.match(finding.message, /UNT nennt 2 Segmente, tatsächlich enthalten: 3\./);
+  });
+
+  it('meldet einen zu hohen Segmentzaehler', () => {
+    const [finding] = messages("UNH+1+UTILMD:D:11A:UN'UNT+9+1'");
+
+    assert.match(finding.message, /UNT nennt 9 Segmente, tatsächlich enthalten: 2\./);
+  });
+
+  it('zaehlt den UNA-Header nicht als Segment der Nachricht', () => {
+    assert.deepEqual(messages("UNA:+.? 'UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1'"), []);
+  });
+
+  it('meldet einen fehlenden Segmentzaehler eigens', () => {
+    const [finding] = messages("UNH+1+UTILMD:D:11A:UN'UNT++1'");
+
+    assert.match(finding.message, /UNT nennt keinen Zähler \(DE 0074\)\. Erwartet: 2 Segmente\./);
+  });
+
+  it('meldet einen nicht numerischen Segmentzaehler eigens', () => {
+    const [finding] = messages("UNH+1+UTILMD:D:11A:UN'UNT+zwei+1'");
+
+    assert.match(finding.message, /nicht numerisch: "zwei"\. Erwartet: 2 Segmente\./);
+  });
+
+  it('prueft den Nachrichtenzaehler in UNZ', () => {
+    const [finding] = messages(
+      "UNB+UNOC:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+2+1'UNZ+2+REF'",
+    );
+
+    assert.equal(finding.messageIndex, null);
+    assert.match(finding.message, /UNZ nennt 2 Nachrichten, tatsächlich enthalten: 1\./);
+  });
+
+  it('zaehlt alle Nachrichten einer Sammelnachricht', () => {
+    assert.deepEqual(
+      messages(
+        "UNB+UNOC:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+2+1'" +
+          "UNH+2+UTILMD:D:11A:UN'UNT+2+2'UNZ+2+REF'",
+      ),
+      [],
+    );
+  });
+
+  it('ordnet Befunde der jeweiligen Nachricht zu', () => {
+    const findings = messages(
+      "UNB+UNOC:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+2+1'" +
+        "UNH+2+UTILMD:D:11A:UN'BGM+E01+1'UNT+2+2'UNZ+2+REF'",
+    );
+
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].messageIndex, 2);
+  });
+
+  it('prueft ohne UNZ nur die Segmentzaehler', () => {
+    assert.deepEqual(messages("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1'"), []);
+  });
+
+  it('laesst eine Nachricht ohne UNT unbeanstandet -- das meldet die Syntaxpruefung', () => {
+    assert.deepEqual(messages("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'"), []);
+  });
+
+  it('verarbeitet Eingaben ohne Segmentgruppen', () => {
+    assert.deepEqual(checkCounters([]), []);
+    assert.deepEqual(checkCounters(null), []);
   });
 });

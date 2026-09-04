@@ -82,6 +82,10 @@
         messageCount: messages.filter((message) =>
           message.segments.some((segment) => segment.tag === 'UNH'),
         ).length,
+        // Einmalig beim Aufbau des Datensatzes, nicht bei jedem Zeichnen.
+        // Gilt fuer geladene und fuer eingeklebte Nachrichten gleichermassen,
+        // weil createRecordFromEdifact ueber diese Funktion laeuft.
+        findings: ns.checkCounters(messages),
         searchIndex: buildSearchIndex(source, payload),
       },
     };
