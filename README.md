@@ -49,8 +49,16 @@ npm run version:sync # schreibt die Version aus package.json nach index.html
 ```
 
 `npm test` braucht kein `npm install`, weil der Testrunner Teil von Node ist. Getestet wird die
-reine Logik: Parser, Datensatzmodell und Formatierung. Die Darstellungsschicht wird nicht
-unit-getestet — sie erzeugt DOM-Knoten und wird im Browser geprüft.
+reine Logik — Parser, Datensatzmodell und Formatierung — und dazu die Darstellungsschicht als
+Rauchtest: [tests/render.test.js](tests/render.test.js) stellt in der Testdatei selbst so viel DOM
+nach, wie [src/dom.js](src/dom.js) und [src/render.js](src/render.js) benutzen, und prüft, **dass**
+gezeichnet wird und **dass** die erwarteten Inhalte im Baum landen. Kein jsdom, keine
+Laufzeitabhängigkeit, kein Build-Schritt.
+
+Die Abgrenzung: Struktur und Inhalt ja, Darstellung nein. Layout, Farben, Fokusreihenfolge und
+Tastaturbedienung bleiben Sache des Browsers und werden dort geprüft. Die Attrappe ist bewusst
+streng — `append(null)` wirft, statt den Wert stillschweigend zu übergehen: genau diese Nachsicht
+würde die Laufzeitfehler verdecken, wegen derer es den Test gibt.
 
 Die Programmversion steht in `package.json` und wird von dort in das Meta-Tag
 `application-version` in [index.html](index.html) geschrieben. Der Info-Dialog liest sie beim Start
