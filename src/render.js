@@ -275,6 +275,50 @@
     );
   }
 
+  /**
+   * Setzt Kennung und Kennungsqualifier eines Marktpartners zusammen.
+   *
+   * @param {{id: string, qualifier: string}} partner
+   * @returns {string} Leer, wenn keine Kennung vorliegt.
+   */
+  function partnerText({ id, qualifier }) {
+    if (!id) return '';
+    return qualifier ? `${id} · Qualifier ${qualifier}` : id;
+  }
+
+  /**
+   * Beschreibt den Zeichensatz aus S001.
+   *
+   * @param {object} header
+   * @returns {string}
+   */
+  function characterSetText(header) {
+    const declared = [header.syntaxIdentifier, header.syntaxVersion].filter(Boolean).join(':');
+    if (!declared) return '';
+    return header.characterSet ? `${declared} · ${header.characterSet}` : declared;
+  }
+
+  /**
+   * Zeichnet die Angaben aus dem Austauschkopf.
+   *
+   * @param {object|null} header Ergebnis von readInterchangeHeader.
+   * @param {string} query
+   * @returns {HTMLElement|null} Null ohne UNB -- dann gibt es nichts zu zeigen.
+   */
+  function interchangeSection(header, query) {
+    if (!header) return null;
+
+    return ns.el('div', { class: 'section' }, [
+      ns.el('h3', { text: 'Austauschkopf (UNB)' }),
+      ns.el('dl', { class: 'meta meta-tight' }, [
+        metaItem('Zeichensatz', characterSetText(header), query),
+        metaItem('Absender', partnerText(header.sender), query),
+        metaItem('Empfänger', partnerText(header.recipient), query),
+        metaItem('Austauschreferenz', header.reference, query),
+      ]),
+    ]);
+  }
+
   function segmentRow(segment, query) {
     const label = ns.segmentLabel(segment.tag);
 
@@ -380,6 +424,12 @@
           ' ',
           ns.el('span', { class: 'chip' }, ns.highlighted(source.messageID || record.id, query)),
         ]),
+        derived.interchange?.isTest
+          ? ns.el('span', {
+              class: 'test-badge',
+              text: 'Testnachricht · UNB Testkennzeichen 1',
+            })
+          : null,
         derived.messageCount > 1
           ? ns.el('span', {
               class: 'aggregate-badge',
@@ -414,6 +464,7 @@
     ns.append(container, [
       head,
       meta,
+      interchangeSection(derived.interchange, query),
       // Befunde zum Austausch als Ganzes stehen ueber der Ansichtsumschaltung,
       // damit sie auch in der Rohdatenansicht sichtbar bleiben.
       findingList(findingsFor(record, null), 'Befunde des Austauschs'),

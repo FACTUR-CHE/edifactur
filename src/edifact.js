@@ -48,6 +48,30 @@
     UNZ: 'Austauschende',
   });
 
+  /**
+   * Syntax-Kennungen aus UNB S001 DE 0001.
+   *
+   * `umlauts` sagt, ob deutsche Umlaute im Zeichensatz enthalten sind. Bei
+   * `UNOA` und `UNOB` sind sie es nicht -- das erklaert jeden Umlaut-Salat in
+   * der Anzeige, noch bevor man in den Daten sucht. Fuer die Marktkommunikation
+   * ist `UNOC:3` vorgeschrieben.
+   *
+   * Nicht aufgefuehrte Kennungen bleiben ohne Aussage; `umlauts` ist dann
+   * `null` statt geraten.
+   */
+  const SYNTAX_IDENTIFIERS = Object.freeze({
+    UNOA: { label: 'Level A (Großbuchstaben, Ziffern, wenige Sonderzeichen)', umlauts: false },
+    UNOB: { label: 'Level B (zusätzlich Kleinbuchstaben)', umlauts: false },
+    UNOC: { label: 'Level C (ISO 8859-1, Latin-1)', umlauts: true },
+    UNOD: { label: 'Level D (ISO 8859-2, Latin-2)', umlauts: true },
+    UNOE: { label: 'Level E (ISO 8859-5, kyrillisch)', umlauts: false },
+    UNOF: { label: 'Level F (ISO 8859-7, griechisch)', umlauts: false },
+    UNOY: { label: 'Level Y (ISO 10646-1, Unicode)', umlauts: true },
+  });
+
+  /** Wert des Testkennzeichens UNB DE 0035 fuer einen Testaustausch. */
+  const TEST_INDICATOR = '1';
+
   /** Bezeichnung fuer Segmente, die nicht in SEGMENT_LABELS stehen. */
   const UNKNOWN_SEGMENT_LABEL = 'EDIFACT-Segment';
 
@@ -349,6 +373,70 @@
   }
 
   /**
+   * Liest den Austauschkopf UNB aus.
+   *
+   * Die Elementpositionen nach UN/EDIFACT Syntax 3:
+   *
+   *     0  S001  Syntax-Kennung und -Version
+   *     1  S002  Absender, Kennung und Kennungsqualifier
+   *     2  S003  Empfaenger, Kennung und Kennungsqualifier
+   *     3  S004  Datum und Uhrzeit der Erstellung
+   *     4  0020  Austauschreferenz
+   *    10  0035  Testkennzeichen
+   *
+   * Datum und Uhrzeit werden hier bewusst nicht ausgewertet. S004 fuehrt das
+   * Jahr zweistellig, die Jahrhundertlage waere also geraten -- und geraten
+   * wird an einer Datumsangabe nichts. Die Uebertragungszeit steht ohnehin in
+   * den Metadaten des Datensatzes.
+   *
+   * @param {object[]} groups Ergebnis von parseEdifact.
+   * @returns {object|null} `null`, wenn die Nutzlast kein UNB enthaelt.
+   */
+  function readInterchangeHeader(groups) {
+    if (!Array.isArray(groups)) return null;
+
+    const unb = groups.flatMap((group) => group.segments).find((segment) => segment.tag === 'UNB');
+    if (!unb) return null;
+
+    const component = (element, position) => unb.components[element]?.[position] ?? '';
+    const identifier = component(0, 0);
+    const syntax = SYNTAX_IDENTIFIERS[identifier] ?? null;
+
+    return {
+      syntaxIdentifier: identifier,
+      syntaxVersion: component(0, 1),
+      characterSet: syntax?.label ?? null,
+      umlauts: syntax ? syntax.umlauts : null,
+      sender: { id: component(1, 0), qualifier: component(1, 1) },
+      recipient: { id: component(2, 0), qualifier: component(2, 1) },
+      reference: component(4, 0),
+      testIndicator: component(10, 0),
+      isTest: component(10, 0) === TEST_INDICATOR,
+    };
+  }
+
+  /**
+   * Weist auf einen Zeichensatz hin, der keine deutschen Umlaute traegt.
+   *
+   * @param {object[]} groups Ergebnis von parseEdifact.
+   * @returns {{level: string, message: string, messageIndex: number|null}[]}
+   */
+  function checkCharacterSet(groups) {
+    const header = readInterchangeHeader(groups);
+    if (!header || header.umlauts !== false) return [];
+
+    return [
+      {
+        level: 'warning',
+        messageIndex: null,
+        message:
+          `Der Zeichensatz ${header.syntaxIdentifier} enthält keine deutschen Umlaute. ` +
+          'Für die Marktkommunikation ist UNOC:3 vorgeschrieben.',
+      },
+    ];
+  }
+
+  /**
    * Vergleicht einen einzelnen Zaehler mit dem gezaehlten Wert.
    *
    * @param {object} options
@@ -448,7 +536,21 @@
     return findings;
   }
 
+  /**
+   * Sammelt alle Pruefbefunde einer Nutzlast.
+   *
+   * Einziger Einstieg fuer die Datensatzschicht -- neue Pruefungen werden hier
+   * eingehaengt und nicht in `records.js` nachgetragen.
+   *
+   * @param {object[]} groups Ergebnis von parseEdifact.
+   * @returns {{level: string, message: string, messageIndex: number|null}[]}
+   */
+  function collectFindings(groups) {
+    return [...checkCounters(groups), ...checkCharacterSet(groups)];
+  }
+
   ns.DEFAULT_DELIMITERS = DEFAULT_DELIMITERS;
+  ns.SYNTAX_IDENTIFIERS = SYNTAX_IDENTIFIERS;
   ns.SEGMENT_LABELS = SEGMENT_LABELS;
   ns.UNKNOWN_SEGMENT_LABEL = UNKNOWN_SEGMENT_LABEL;
   ns.UNKNOWN_MESSAGE_TYPE = UNKNOWN_MESSAGE_TYPE;
@@ -461,4 +563,7 @@
   ns.parseEdifact = parseEdifact;
   ns.validateEdifactSyntax = validateEdifactSyntax;
   ns.checkCounters = checkCounters;
+  ns.checkCharacterSet = checkCharacterSet;
+  ns.collectFindings = collectFindings;
+  ns.readInterchangeHeader = readInterchangeHeader;
 })((globalThis.EdifactExplorer ??= {}));

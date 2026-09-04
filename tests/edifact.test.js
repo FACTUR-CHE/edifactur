@@ -9,10 +9,13 @@ const {
   DEFAULT_DELIMITERS,
   UNKNOWN_MESSAGE_TYPE,
   UNKNOWN_SEGMENT_LABEL,
+  checkCharacterSet,
   checkCounters,
+  collectFindings,
   hasUnaHeader,
   parseEdifact,
   readDelimiters,
+  readInterchangeHeader,
   segmentLabel,
   splitEdifact,
   splitKeepingRelease,
@@ -383,5 +386,125 @@ describe('checkCounters', () => {
   it('verarbeitet Eingaben ohne Segmentgruppen', () => {
     assert.deepEqual(checkCounters([]), []);
     assert.deepEqual(checkCounters(null), []);
+  });
+});
+
+describe('readInterchangeHeader', () => {
+  const header = (payload) => readInterchangeHeader(parseEdifact(payload));
+
+  it('liest Zeichensatz, Partner und Austauschreferenz', () => {
+    const result = header(
+      "UNB+UNOC:3+9900000000001:500+9900000000999:500+260801:0815+DEMOREF001'UNH+1+UTILMD:D:11A:UN'UNT+2+1'UNZ+1+DEMOREF001'",
+    );
+
+    assert.equal(result.syntaxIdentifier, 'UNOC');
+    assert.equal(result.syntaxVersion, '3');
+    assert.equal(result.characterSet, 'Level C (ISO 8859-1, Latin-1)');
+    assert.equal(result.umlauts, true);
+    assert.deepEqual(result.sender, { id: '9900000000001', qualifier: '500' });
+    assert.deepEqual(result.recipient, { id: '9900000000999', qualifier: '500' });
+    assert.equal(result.reference, 'DEMOREF001');
+    assert.equal(result.isTest, false);
+  });
+
+  it('liefert ohne UNB null', () => {
+    assert.equal(header("UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1'"), null);
+    assert.equal(readInterchangeHeader([]), null);
+    assert.equal(readInterchangeHeader(null), null);
+  });
+
+  it('erkennt das Testkennzeichen in DE 0035', () => {
+    const result = header("UNB+UNOC:3+1:500+2:500+260801:0815+REF++++++1'");
+
+    assert.equal(result.testIndicator, '1');
+    assert.equal(result.isTest, true);
+  });
+
+  it('liest das Testkennzeichen nur an Position 10', () => {
+    // Eine 1 an Position 9 ist DE 0032, die Austauschvereinbarung.
+    assert.equal(header("UNB+UNOC:3+1:500+2:500+260801:0815+REF+++++1'").isTest, false);
+  });
+
+  it('deutet einen anderen Wert in DE 0035 nicht als Test', () => {
+    assert.equal(header("UNB+UNOC:3+1:500+2:500+260801:0815+REF++++++0'").isTest, false);
+  });
+
+  it('verarbeitet ein UNB ohne die optionalen Elemente', () => {
+    const result = header("UNB+UNOC:3+1+2+260801:0815+REF'");
+
+    assert.deepEqual(result.sender, { id: '1', qualifier: '' });
+    assert.deepEqual(result.recipient, { id: '2', qualifier: '' });
+    assert.equal(result.testIndicator, '');
+    assert.equal(result.isTest, false);
+  });
+
+  it('verarbeitet ein UNB ohne jeden Inhalt', () => {
+    const result = header("UNB'");
+
+    assert.equal(result.syntaxIdentifier, '');
+    assert.equal(result.characterSet, null);
+    assert.equal(result.umlauts, null);
+    assert.deepEqual(result.sender, { id: '', qualifier: '' });
+    assert.equal(result.reference, '');
+    assert.equal(result.isTest, false);
+  });
+
+  it('trifft ueber eine unbekannte Syntax-Kennung keine Aussage', () => {
+    const result = header("UNB+ZZZZ:3+1+2+260801:0815+REF'");
+
+    assert.equal(result.syntaxIdentifier, 'ZZZZ');
+    assert.equal(result.characterSet, null);
+    assert.equal(result.umlauts, null);
+  });
+});
+
+describe('checkCharacterSet', () => {
+  const findings = (payload) => checkCharacterSet(parseEdifact(payload));
+
+  it('weist auf UNOB ohne Umlaute hin', () => {
+    const [finding] = findings("UNB+UNOB:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+2+1'");
+
+    assert.equal(finding.level, 'warning');
+    assert.equal(finding.messageIndex, null);
+    assert.match(finding.message, /UNOB enthält keine deutschen Umlaute/);
+    assert.match(finding.message, /UNOC:3 vorgeschrieben/);
+  });
+
+  it('weist auch auf UNOA hin', () => {
+    assert.equal(findings("UNB+UNOA:2+1+2+260801:0815+REF'").length, 1);
+  });
+
+  it('meldet bei UNOC nichts', () => {
+    assert.deepEqual(findings("UNB+UNOC:3+1+2+260801:0815+REF'"), []);
+  });
+
+  it('meldet bei unbekannter Kennung nichts statt zu raten', () => {
+    assert.deepEqual(findings("UNB+ZZZZ:3+1+2+260801:0815+REF'"), []);
+  });
+
+  it('meldet ohne UNB nichts', () => {
+    assert.deepEqual(findings("UNH+1+UTILMD:D:11A:UN'UNT+2+1'"), []);
+  });
+});
+
+describe('collectFindings', () => {
+  it('fuehrt Zaehler- und Zeichensatzpruefung zusammen', () => {
+    const findings = collectFindings(
+      parseEdifact("UNB+UNOB:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+9+1'UNZ+1+REF'"),
+    );
+
+    assert.deepEqual(
+      findings.map((finding) => finding.level),
+      ['error', 'warning'],
+    );
+  });
+
+  it('liefert bei einwandfreier Nutzlast eine leere Liste', () => {
+    assert.deepEqual(
+      collectFindings(
+        parseEdifact("UNB+UNOC:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+2+1'UNZ+1+REF'"),
+      ),
+      [],
+    );
   });
 });

@@ -571,7 +571,8 @@ pre {
   color: var(--brand);
 }
 
-.aggregate-badge {
+.aggregate-badge,
+.test-badge {
   display: inline-block;
   margin-block-start: 7px;
   padding: 3px 6px;
@@ -581,6 +582,16 @@ pre {
   font: 700 11px var(--font-sans);
   letter-spacing: 0.03em;
   text-transform: uppercase;
+}
+
+/* Ein Testaustausch darf nicht fuer einen Produktivaustausch gehalten
+   werden. Die Warnfarbe unterscheidet ihn von der Sammelnachricht, die
+   nur eine Struktureigenschaft meldet. */
+.test-badge {
+  margin-inline-end: 7px;
+  border-color: var(--warning-ink);
+  background: var(--warning-surface);
+  color: var(--warning-ink);
 }
 
 /* -- Seitennavigation ---------------------------------------------------- */
@@ -653,6 +664,12 @@ pre {
 
 .meta div {
   min-inline-size: 0;
+}
+
+/* Die Kopfdaten aus UNB stehen unter einer eigenen Ueberschrift und
+   brauchen den Abstand des Metadatenblocks nicht noch einmal. */
+.meta-tight {
+  margin: 0;
 }
 
 .meta dt {
