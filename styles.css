@@ -922,6 +922,12 @@ pre {
   font-style: italic;
 }
 
+/* Ein Wert, der nicht zu seinem Formatkennzeichen passt, ist ein Fehler in
+   der Nachricht -- anders als ein nur unbelegter Code. */
+.code-invalid {
+  color: var(--danger-ink);
+}
+
 .segment-hint {
   margin: 0 0 10px;
   color: var(--muted);

@@ -280,8 +280,33 @@
     260: 'Summe der Nachlässe',
   });
 
+  /**
+   * DE 2379 Format von Datum, Uhrzeit oder Zeitraum.
+   *
+   * Die Bezeichnung nennt das Muster, weil das die Angabe ist, die man beim
+   * Lesen einer Nachricht braucht. Die Umsetzung in ein lesbares Datum macht
+   * `decodeDateTime` in format.js -- die Feldlisten dort und die Muster hier
+   * muessen zusammenpassen, ein Test prueft das.
+   */
+  const DATE_FORMAT = Object.freeze({
+    2: 'DDMMYY',
+    101: 'YYMMDD',
+    102: 'CCYYMMDD',
+    106: 'MMDD',
+    201: 'YYMMDDHHMM',
+    203: 'CCYYMMDDHHMM',
+    204: 'CCYYMMDDHHMMSS',
+    303: 'CCYYMMDDHHMMZZZ (mit UTC-Versatz)',
+    305: 'MMDDHHMM',
+    401: 'HHMM',
+    610: 'CCYYMM',
+    616: 'CCYYWW (Kalenderwoche)',
+    719: 'CCYYMMDDHHMM-CCYYMMDDHHMM (Zeitraum)',
+  });
+
   const CODE_LISTS = Object.freeze({
     1001: Object.freeze({ name: 'Dokumentenart', codes: DOCUMENT_NAME }),
+    2379: Object.freeze({ name: 'Format von Datum, Uhrzeit oder Zeitraum', codes: DATE_FORMAT }),
     1153: Object.freeze({ name: 'Referenz, Qualifier', codes: REFERENCE_QUALIFIER }),
     1225: Object.freeze({ name: 'Nachrichtenfunktion', codes: MESSAGE_FUNCTION }),
     3035: Object.freeze({ name: 'Beteiligter, Qualifier', codes: PARTY_FUNCTION }),

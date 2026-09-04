@@ -453,7 +453,56 @@
         });
   }
 
-  function componentRow(tag, element, component, value, split, query) {
+  /**
+   * Uebersetzt einen DTM-Wert in eine lesbare Datumsangabe.
+   *
+   * @param {string} value    Wert aus DE 2380.
+   * @param {string|undefined} format Formatkennzeichen aus DE 2379.
+   * @returns {HTMLElement|null}
+   */
+  function dateText(value, format) {
+    const decoded = ns.decodeDateTime(value, format);
+    if (!decoded) return null;
+
+    if (decoded.status === 'ok') {
+      return ns.el('span', { class: 'code-meaning', text: decoded.text });
+    }
+
+    if (decoded.status === 'unknown') {
+      return ns.el('span', {
+        class: 'code-meaning code-unlisted',
+        title:
+          'Für dieses Formatkennzeichen ist keine Lesart hinterlegt. Der Rohwert bleibt unverändert stehen.',
+        text: 'Format nicht hinterlegt',
+      });
+    }
+
+    return ns.el('span', {
+      class: 'code-meaning code-invalid',
+      title: decoded.error,
+      text: 'passt nicht zum Format',
+    });
+  }
+
+  /**
+   * Waehlt die Erlaeuterung zu einem Wert.
+   *
+   * DE 2380 traegt seine Lesart nicht in sich -- erst das Formatkennzeichen
+   * in DE 2379 macht daraus ein Datum. In C507 steht es immer als naechste
+   * Komponente.
+   *
+   * @param {{code: string}|null} definition
+   * @param {string} value
+   * @param {string[]} siblings  Komponenten desselben Datenelements.
+   * @param {number} component
+   * @returns {HTMLElement|null}
+   */
+  function valueAnnotation(definition, value, siblings, component) {
+    if (definition?.code === '2380') return dateText(value, siblings[component + 1]);
+    return codeText(definition?.code, value);
+  }
+
+  function componentRow(tag, element, component, value, split, query, siblings) {
     const definition = ns.dataElement(tag, element, component);
     const position = split ? `${element + 1}.${component + 1}` : `${element + 1}`;
     const name = definition ? definition.name : `Element ${position}`;
@@ -479,7 +528,7 @@
                 },
                 ns.highlighted(value, query),
               ),
-              codeText(definition?.code, value),
+              valueAnnotation(definition, value, siblings, component),
             ]
           : [ns.el('span', { class: 'value value-empty', text: ns.EMPTY_ELEMENT })],
       ),
@@ -492,7 +541,7 @@
     const rows = segment.components.flatMap((components, element) => {
       const split = components.length > 1;
       return components.map((value, component) =>
-        componentRow(segment.tag, element, component, value, split, query),
+        componentRow(segment.tag, element, component, value, split, query, components),
       );
     });
 

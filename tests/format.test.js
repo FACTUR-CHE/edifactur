@@ -6,8 +6,16 @@ import '../src/format.js';
 
 // Die Quelldateien sind klassische Skripte ohne export; sie werden per
 // Seiteneffekt geladen und legen ihre Namen im Namensraum ab.
-const { PLACEHOLDER, formatCount, formatDate, joinSegments, parseEdifact, splitByQuery } =
-  globalThis.EdifactExplorer;
+const {
+  DATE_FORMATS,
+  PLACEHOLDER,
+  decodeDateTime,
+  formatCount,
+  formatDate,
+  joinSegments,
+  parseEdifact,
+  splitByQuery,
+} = globalThis.EdifactExplorer;
 
 describe('formatDate', () => {
   it('formatiert einen gueltigen Zeitstempel', () => {
@@ -172,5 +180,147 @@ describe('joinSegments', () => {
   it('liefert fuer eine unbrauchbare Eingabe eine leere Zeichenkette', () => {
     assert.equal(joinSegments(null, "'"), '');
     assert.equal(joinSegments(undefined, "'"), '');
+  });
+});
+
+describe('decodeDateTime', () => {
+  const ok = (value, format) => {
+    const result = decodeDateTime(value, format);
+    assert.equal(result.status, 'ok', `Format ${format} sollte lesbar sein: ${result.error ?? ''}`);
+    return result.text;
+  };
+
+  it('liest 102 als Kalenderdatum', () => {
+    assert.equal(ok('20260801', '102'), '01.08.2026');
+  });
+
+  it('liest 203 als Datum mit Uhrzeit', () => {
+    assert.equal(ok('202608010815', '203'), '01.08.2026 08:15');
+  });
+
+  it('liest 204 mit Sekunden', () => {
+    assert.equal(ok('20260801081530', '204'), '01.08.2026 08:15:30');
+  });
+
+  it('weist bei 303 den UTC-Versatz aus, ohne ihn zu verrechnen', () => {
+    assert.equal(ok('202608010815+02', '303'), '01.08.2026 08:15 (UTC+02)');
+    assert.equal(ok('202608010815-05', '303'), '01.08.2026 08:15 (UTC-05)');
+  });
+
+  it('akzeptiert bei 303 einen einstelligen Versatz', () => {
+    // In der Marktkommunikation kommen ?+00, ?+1 und ?+2 alle vor.
+    assert.equal(ok('201002011100+1', '303'), '01.02.2010 11:00 (UTC+01)');
+    assert.equal(ok('200710012200+00', '303'), '01.10.2007 22:00 (UTC+00)');
+  });
+
+  it('meldet einen fehlenden Versatz bei 303', () => {
+    const result = decodeDateTime('202608010815', '303');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /UTC-Versatz/);
+  });
+
+  it('liest 106 ohne Jahresangabe und sagt das', () => {
+    assert.equal(ok('0801', '106'), '01.08. (ohne Jahresangabe)');
+  });
+
+  it('liest 610 als Monat im Jahr', () => {
+    assert.equal(ok('202608', '610'), '08.2026');
+  });
+
+  it('liest 616 als Kalenderwoche', () => {
+    assert.equal(ok('202631', '616'), 'Woche 31/2026');
+  });
+
+  it('liest 401 als Uhrzeit', () => {
+    assert.equal(ok('0815', '401'), '08:15');
+  });
+
+  it('liest 305 ohne Jahresangabe', () => {
+    assert.equal(ok('08010815', '305'), '01.08. 08:15 (ohne Jahresangabe)');
+  });
+
+  it('ergaenzt bei zweistelligem Jahr keine Jahrhundertlage', () => {
+    // 101 fuehrt YYMMDD. Das Jahrhundert stuende nicht in der Nachricht,
+    // also wird es auch nicht angezeigt.
+    assert.equal(ok('260801', '101'), '01.08.26');
+    assert.equal(ok('010826', '2'), '01.08.26');
+    assert.equal(ok('2608010815', '201'), '01.08.26 08:15');
+  });
+
+  it('liest 719 als Zeitraum', () => {
+    assert.equal(ok('202608010815-202608020815', '719'), '01.08.2026 08:15 – 02.08.2026 08:15');
+  });
+
+  it('meldet einen unvollstaendigen Zeitraum', () => {
+    const result = decodeDateTime('202608010815', '719');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /Anfang und Ende/);
+  });
+
+  it('raet bei unbekanntem Formatkennzeichen nicht', () => {
+    assert.deepEqual(decodeDateTime('202608010815', '999'), { status: 'unknown' });
+    assert.deepEqual(decodeDateTime('20260801', 'ZZ'), { status: 'unknown' });
+  });
+
+  it('meldet eine falsche Laenge', () => {
+    const result = decodeDateTime('2026080', '102');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /7 Zeichen, das Format erwartet 8/);
+  });
+
+  it('meldet nicht numerische Zeichen', () => {
+    const result = decodeDateTime('2026080X', '102');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /Zeichen, die in diesem Format nicht vorkommen/);
+  });
+
+  it('meldet einen Monat ausserhalb des Bereichs', () => {
+    const result = decodeDateTime('20261301', '102');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /Monat 13 liegt außerhalb von 1–12/);
+  });
+
+  it('meldet eine Stunde ausserhalb des Bereichs', () => {
+    const result = decodeDateTime('202608012500', '203');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /Stunde 25/);
+  });
+
+  it('meldet ein Datum, das es nicht gibt', () => {
+    const result = decodeDateTime('20260230', '102');
+
+    assert.equal(result.status, 'invalid');
+    assert.match(result.error, /Den 30\.02\.2026 gibt es nicht/);
+  });
+
+  it('erkennt den 29. Februar in einem Schaltjahr an', () => {
+    assert.equal(ok('20240229', '102'), '29.02.2024');
+  });
+
+  it('trifft ohne Wert oder Formatkennzeichen keine Aussage', () => {
+    assert.equal(decodeDateTime('', '102'), null);
+    assert.equal(decodeDateTime('20260801', ''), null);
+    assert.equal(decodeDateTime('20260801', null), null);
+    assert.equal(decodeDateTime(null, '102'), null);
+  });
+
+  it('ignoriert umgebende Leerzeichen', () => {
+    assert.equal(ok(' 20260801 ', ' 102 '), '01.08.2026');
+  });
+
+  it('deckt jedes hinterlegte Formatkennzeichen ab', () => {
+    for (const format of Object.keys(DATE_FORMATS)) {
+      assert.notDeepEqual(
+        decodeDateTime('202608010815+02', format),
+        { status: 'unknown' },
+        `Formatkennzeichen ${format} wird nicht erkannt`,
+      );
+    }
   });
 });

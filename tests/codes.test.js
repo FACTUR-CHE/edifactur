@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import '../src/codes.js';
+import '../src/format.js';
 import '../src/segments.js';
 
 // Die Quelldateien sind klassische Skripte ohne export; sie werden per
 // Seiteneffekt geladen und legen ihre Namen im Namensraum ab.
-const { CODE_LISTS, SEGMENT_DEFINITIONS, codeMeaning, hasCodeList } = globalThis.EdifactExplorer;
+const { CODE_LISTS, DATE_FORMATS, SEGMENT_DEFINITIONS, codeMeaning, hasCodeList } =
+  globalThis.EdifactExplorer;
 
 describe('hasCodeList', () => {
   it('erkennt hinterlegte Datenelemente', () => {
@@ -125,5 +127,17 @@ describe('CODE_LISTS', () => {
       if (expected === undefined) continue;
       assert.equal(list.name, expected, `Bezeichnung weicht ab fuer DE ${element}`);
     }
+  });
+});
+
+describe('DE 2379 und die Feldlisten in format.js', () => {
+  it('fuehrt beide Seiten dieselben Formatkennzeichen', () => {
+    // Die Muster stehen in codes.js, die Feldlisten in format.js. Kommt ein
+    // Kennzeichen nur auf einer Seite dazu, zeigt die Oberflaeche entweder
+    // ein Muster ohne Lesart oder eine Lesart ohne Muster.
+    assert.deepEqual(
+      Object.keys(CODE_LISTS['2379'].codes).sort(),
+      Object.keys(DATE_FORMATS).sort(),
+    );
   });
 });
