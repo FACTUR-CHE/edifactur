@@ -230,6 +230,73 @@
   }
 
   /**
+   * Legt `text` ueber ein verstecktes Textfeld in die Zwischenablage.
+   *
+   * `document.execCommand` ist veraltet, unter `file://` aber oft der einzige
+   * Weg: die Clipboard-API verlangt einen sicheren Kontext, und der Viewer
+   * soll sich per Doppelklick aus dem Dateisystem oeffnen lassen.
+   *
+   * @param {string} text
+   * @returns {boolean}
+   */
+  function copyViaTextarea(text) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    // Ausserhalb des Blickfelds, aber nicht `display: none` -- ein
+    // unsichtbares Feld laesst sich nicht markieren.
+    area.style.position = 'fixed';
+    area.style.top = '-1000px';
+    area.style.opacity = '0';
+    document.body.append(area);
+    area.select();
+
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch {
+      copied = false;
+    }
+
+    area.remove();
+    return copied;
+  }
+
+  /**
+   * Kopiert `text` und meldet das Ergebnis.
+   *
+   * Scheitern bleibt nicht stumm: ohne Rueckmeldung haelt man den Wert fuer
+   * kopiert und fuegt an anderer Stelle etwas Altes ein.
+   *
+   * @param {string} text
+   * @param {string} label Bezeichnung fuer die Rueckmeldung.
+   */
+  async function copyToClipboard(text, label) {
+    let copied = false;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch {
+      copied = false;
+    }
+
+    if (!copied) copied = copyViaTextarea(text);
+
+    if (copied) {
+      showNotice(`${label} in die Zwischenablage kopiert.`, 'info');
+      return;
+    }
+
+    showNotice(
+      `${label} konnte nicht kopiert werden — der Browser hat den Zugriff auf die Zwischenablage abgelehnt. Der Wert lässt sich markieren und mit Strg+C übernehmen.`,
+      'warning',
+    );
+  }
+
+  /**
    * Waehlt einen Datensatz anhand seiner Kennung aus und macht ihn sichtbar.
    *
    * @param {string} id
@@ -510,6 +577,12 @@
   dom.detail.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    const copy = target.closest('[data-copy]');
+    if (copy) {
+      copyToClipboard(copy.dataset.copy, copy.dataset.copyLabel || 'Wert');
+      return;
+    }
 
     const jump = target.closest('[data-goto]');
     if (jump) {

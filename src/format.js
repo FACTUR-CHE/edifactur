@@ -104,9 +104,36 @@
     return parts;
   }
 
+  /**
+   * Setzt Segmente wieder zu EDIFACT zusammen.
+   *
+   * Was im Viewer zu sehen ist, muss ins Ticket oder in die Mail an den
+   * Marktpartner. Genau zwei Formen sind dafuer brauchbar: die einzeilige
+   * Rohform, wie sie uebertragen wird, und die Form mit einem Segment je
+   * Zeile, wie man sie liest.
+   *
+   * @param {object[]} segments Segmente mit `tag` und `raw`.
+   * @param {string} segmentSeparator
+   * @param {string} [between] Was zwischen die Segmente kommt. Leer ergibt die
+   *   einzeilige Rohform, `"\n"` ein Segment je Zeile.
+   * @returns {string}
+   */
+  function joinSegments(segments, segmentSeparator, between = '') {
+    if (!Array.isArray(segments)) return '';
+
+    return segments
+      .map((segment) =>
+        // Der UNA-Header traegt seinen Abschluss selbst. Ein weiterer
+        // Segmenttrenner wuerde ihn verdoppeln.
+        segment.tag === 'UNA' ? segment.raw : `${segment.raw}${segmentSeparator}`,
+      )
+      .join(between);
+  }
+
   ns.PLACEHOLDER = PLACEHOLDER;
   ns.EMPTY_ELEMENT = EMPTY_ELEMENT;
   ns.formatDate = formatDate;
   ns.formatCount = formatCount;
   ns.splitByQuery = splitByQuery;
+  ns.joinSegments = joinSegments;
 })((globalThis.EdifactExplorer ??= {}));

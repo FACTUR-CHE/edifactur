@@ -394,24 +394,72 @@
     ]);
   }
 
-  function segmentRow(segment, query) {
+  /**
+   * Zeichnet eine Segmentzeile.
+   *
+   * Kopieren haengt an den Elementen, die ohnehin da sind: das Segment-Tag
+   * kopiert die ganze Segmentzeile, ein Wert kopiert diesen Wert. Ein eigener
+   * Knopf je Zeile waere bei einer MSCONS mit hunderten Segmenten unlesbar.
+   *
+   * Leere Elemente bleiben Text -- an einem Platzhalter gibt es nichts zu
+   * kopieren.
+   *
+   * @param {object} segment
+   * @param {string} query
+   * @param {string} segmentSeparator
+   * @returns {HTMLElement}
+   */
+  function segmentRow(segment, query, segmentSeparator) {
     const label = ns.segmentLabel(segment.tag);
 
     const values = segment.elements.map((value, index) =>
-      ns.el(
-        'span',
-        { class: 'value', title: `Element ${index + 1}` },
-        ns.highlighted(value || ns.EMPTY_ELEMENT, query),
-      ),
+      value
+        ? ns.el(
+            'button',
+            {
+              class: 'value value-copy',
+              type: 'button',
+              dataset: { copy: value, copyLabel: `Element ${index + 1}` },
+              title: `Element ${index + 1} kopieren`,
+            },
+            ns.highlighted(value, query),
+          )
+        : ns.el('span', { class: 'value', title: `Element ${index + 1}` }, [ns.EMPTY_ELEMENT]),
     );
 
     return ns.el('div', { class: 'segment' }, [
-      ns.el('code', { title: label, text: segment.tag }),
+      ns.el('button', {
+        class: 'segment-tag',
+        type: 'button',
+        dataset: {
+          copy: ns.joinSegments([segment], segmentSeparator),
+          copyLabel: `Segment ${segment.tag}`,
+        },
+        title: `${label} · Segmentzeile kopieren`,
+        text: segment.tag,
+      }),
       ns.el('div', {}, [
         ns.el('small', { text: label }),
         values.length > 0 ? ns.el('div', { class: 'segment-values' }, values) : null,
       ]),
     ]);
+  }
+
+  /**
+   * Zeichnet eine Kopieraktion.
+   *
+   * @param {string} text  Was kopiert wird.
+   * @param {string} label Wie es in der Rueckmeldung heisst.
+   * @param {string} caption Beschriftung des Knopfs.
+   * @returns {HTMLElement}
+   */
+  function copyButton(text, label, caption) {
+    return ns.el('button', {
+      class: 'button button-quiet button-small',
+      type: 'button',
+      dataset: { copy: text, copyLabel: label },
+      text: caption,
+    });
   }
 
   /**
@@ -446,10 +494,30 @@
       .filter(Boolean)
       .join(' · ');
 
+    const separator = record.derived.delimiters.segment;
+
     const section = ns.el('div', { class: 'section' }, [
-      ns.el('h3', { text: heading }),
+      ns.el('div', { class: 'section-head' }, [
+        ns.el('h3', { text: heading }),
+        ns.el('div', { class: 'section-actions' }, [
+          copyButton(
+            ns.joinSegments(message.segments, separator),
+            'Nachricht',
+            'Nachricht kopieren',
+          ),
+          copyButton(
+            ns.joinSegments(message.segments, separator, '\n'),
+            'Nachricht (formatiert)',
+            'Formatiert kopieren',
+          ),
+        ]),
+      ]),
       findingList(findingsFor(record, index), 'Befunde dieser Nachricht'),
-      ...message.segments.map((segment) => segmentRow(segment, query)),
+      ns.el('p', {
+        class: 'segment-hint',
+        text: 'Klick auf ein Segment-Tag kopiert die Segmentzeile, Klick auf einen Wert den Einzelwert.',
+      }),
+      ...message.segments.map((segment) => segmentRow(segment, query, separator)),
     ]);
 
     if (messages.length === 1) return [section];
@@ -546,8 +614,17 @@
       tabClass: 'tab',
     });
 
+    // In der Rohdatenansicht wird die Nutzlast unveraendert kopiert. Die
+    // Kopie einer einzelnen Nachricht wird aus ihren Segmenten
+    // zusammengesetzt, kann also nicht zeichengleich sein -- deshalb steht
+    // beides zur Verfuegung, an der Stelle, an der es jeweils passt.
     const body = isRaw
-      ? [ns.el('pre', {}, ns.highlighted(derived.payload, query))]
+      ? [
+          ns.el('div', { class: 'section-actions section-actions-raw' }, [
+            copyButton(derived.payload, 'Nutzlast', 'Nutzlast kopieren'),
+          ]),
+          ns.el('pre', {}, ns.highlighted(derived.payload, query)),
+        ]
       : renderStructured(record, { query, activeMessage });
 
     ns.append(container, [

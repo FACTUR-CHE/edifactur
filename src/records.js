@@ -77,6 +77,9 @@
       derived: {
         payload,
         messages,
+        // Zum Wiederzusammensetzen einzelner Nachrichten gebraucht: der
+        // Segmenttrenner steht nur im UNA-Header der Nutzlast.
+        delimiters: ns.readDelimiters(payload),
         // Nur Gruppen mit UNH-Kopf sind fachliche Nachrichten. Huellsegmente
         // (UNB, UNZ) bilden eigene Gruppen und werden hier nicht mitgezaehlt.
         messageCount: messages.filter((message) =>

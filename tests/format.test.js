@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import '../src/edifact.js';
 import '../src/format.js';
 
 // Die Quelldateien sind klassische Skripte ohne export; sie werden per
 // Seiteneffekt geladen und legen ihre Namen im Namensraum ab.
-const { PLACEHOLDER, formatCount, formatDate, splitByQuery } = globalThis.EdifactExplorer;
+const { PLACEHOLDER, formatCount, formatDate, joinSegments, parseEdifact, splitByQuery } =
+  globalThis.EdifactExplorer;
 
 describe('formatDate', () => {
   it('formatiert einen gueltigen Zeitstempel', () => {
@@ -127,5 +129,48 @@ describe('splitByQuery', () => {
       { text: 'ab', match: false },
       { text: 'c', match: true },
     ]);
+  });
+});
+
+describe('joinSegments', () => {
+  const segmentsOf = (payload) => parseEdifact(payload).flatMap((group) => group.segments);
+
+  it('setzt Segmente einzeilig wieder zusammen', () => {
+    const payload = "UNH+1+UTILMD:D:11A:UN'BGM+E01+1'UNT+3+1'";
+
+    assert.equal(joinSegments(segmentsOf(payload), "'"), payload);
+  });
+
+  it('setzt mit Zeilenumbruch ein Segment je Zeile', () => {
+    const lines = joinSegments(segmentsOf("UNH+1+UTILMD'BGM+E01+1'UNT+3+1'"), "'", '\n');
+
+    assert.deepEqual(lines.split('\n'), ["UNH+1+UTILMD'", "BGM+E01+1'", "UNT+3+1'"]);
+  });
+
+  it('verdoppelt den Abschluss des UNA-Headers nicht', () => {
+    const payload = "UNA:+.? 'UNH+1+UTILMD'UNT+2+1'";
+
+    assert.equal(joinSegments(segmentsOf(payload), "'"), payload);
+  });
+
+  it('behaelt die Maskierung eines Trennzeichens', () => {
+    const payload = "FTX+ACB+++Betrag ?+ Zuschlag'";
+
+    assert.equal(joinSegments(segmentsOf(payload), "'"), payload);
+  });
+
+  it('arbeitet mit abweichenden Trennzeichen', () => {
+    const payload = 'UNA|;,* ~UNH;1;UTILMD~UNT;2;1~';
+
+    assert.equal(joinSegments(segmentsOf(payload), '~'), payload);
+  });
+
+  it('liefert fuer eine leere Segmentliste eine leere Zeichenkette', () => {
+    assert.equal(joinSegments([], "'"), '');
+  });
+
+  it('liefert fuer eine unbrauchbare Eingabe eine leere Zeichenkette', () => {
+    assert.equal(joinSegments(null, "'"), '');
+    assert.equal(joinSegments(undefined, "'"), '');
   });
 });

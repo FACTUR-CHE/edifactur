@@ -326,6 +326,11 @@ pre {
   font-size: 14px;
 }
 
+.button-small {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
 .button:disabled {
   cursor: not-allowed;
   background: var(--control-disabled);
@@ -759,6 +764,25 @@ pre {
   font-size: 16px;
 }
 
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block-end: 8px;
+}
+
+.section-actions-raw {
+  justify-content: flex-end;
+}
+
 .findings {
   margin: 0 0 16px;
   padding: 0;
@@ -797,9 +821,21 @@ pre {
   border-block-end: 1px solid var(--line-soft);
 }
 
-.segment code {
+/* Das Segment-Tag ist gleichzeitig die Kopieraktion fuer die ganze
+   Segmentzeile. Ein eigener Knopf je Zeile waere bei hunderten Segmenten
+   unlesbar, deshalb tragen die vorhandenen Elemente die Aktion. */
+.segment-tag {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--brand);
-  font-weight: 700;
+  font: 700 13px var(--font-mono);
+  text-align: start;
+  cursor: pointer;
+}
+
+.segment-tag:hover {
+  text-decoration: underline;
 }
 
 .segment small {
@@ -818,6 +854,25 @@ pre {
   background: var(--value-surface);
   font: 400 12px var(--font-mono);
   overflow-wrap: anywhere;
+}
+
+/* Ein Wert mit Inhalt ist ein Knopf, ein leerer bleibt Text -- an einem
+   Platzhalter gibt es nichts zu kopieren. Beide sehen gleich aus. */
+.value-copy {
+  border: 0;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.value-copy:hover {
+  background: var(--mark-surface);
+}
+
+.segment-hint {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 mark {
