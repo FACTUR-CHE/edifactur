@@ -276,6 +276,81 @@
   }
 
   /**
+   * Beschriftet einen Datensatz kurz fuer eine Sprungmarke.
+   *
+   * @param {object} record
+   * @returns {string}
+   */
+  function recordLabel(record) {
+    return [record.source.messageFormat || 'EDIFACT', record.source.messageID || record.id].join(
+      ' · ',
+    );
+  }
+
+  /**
+   * Zeichnet die Referenz auf die Ursprungsnachricht.
+   *
+   * Ist der referenzierte Datensatz geladen, wird die Referenz ein
+   * Bedienelement. Ist er es nicht, wird das gesagt -- ein Bedienelement, das
+   * ins Leere fuehrt, waere schlechter als gar keines.
+   *
+   * @param {object} record
+   * @param {object|null} target Referenzierter Datensatz oder null.
+   * @param {string} query
+   * @returns {HTMLElement}
+   */
+  function referenceItem(record, target, query) {
+    const reference = record.source.referenceMessageID;
+    if (!reference) return metaItem('Referenz', '', query);
+
+    const value = target
+      ? ns.el(
+          'button',
+          {
+            class: 'link-button',
+            type: 'button',
+            dataset: { goto: target.id },
+            title: `Zu ${recordLabel(target)} springen`,
+          },
+          ns.highlighted(reference, query),
+        )
+      : ns.el('span', { class: 'reference-missing' }, [
+          ns.highlighted(reference, query),
+          ns.el('small', { text: 'nicht geladen' }),
+        ]);
+
+    return ns.el('div', {}, [ns.el('dt', { text: 'Referenz' }), ns.el('dd', {}, [value])]);
+  }
+
+  /**
+   * Listet die Nachrichten auf, die auf den gezeigten Datensatz verweisen.
+   *
+   * @param {object[]} sources
+   * @returns {HTMLElement|null} Null, wenn niemand verweist.
+   */
+  function chainSection(sources) {
+    if (sources.length === 0) return null;
+
+    return ns.el('div', { class: 'section' }, [
+      ns.el('h3', { text: 'Nimmt Bezug auf diese Nachricht' }),
+      ns.el(
+        'ul',
+        { class: 'chain' },
+        sources.map((entry) =>
+          ns.el('li', {}, [
+            ns.el('button', {
+              class: 'link-button',
+              type: 'button',
+              dataset: { goto: entry.id },
+              text: recordLabel(entry),
+            }),
+          ]),
+        ),
+      ),
+    ]);
+  }
+
+  /**
    * Setzt Kennung und Kennungsqualifier eines Marktpartners zusammen.
    *
    * @param {{id: string, qualifier: string}} partner
@@ -406,8 +481,14 @@
    * @param {string} options.query
    * @param {'structured'|'raw'} options.activeTab
    * @param {number} options.activeMessage
+   * @param {{target: object|null, sources: object[]}} [options.chain]
+   *   Aufgeloeste Vorgangskette. Die Aufloesung liegt in app.js, damit diese
+   *   Schicht keine Datensatzsuche kennt.
    */
-  function renderDetail(container, { record, query, activeTab, activeMessage }) {
+  function renderDetail(
+    container,
+    { record, query, activeTab, activeMessage, chain = { target: null, sources: [] } },
+  ) {
     ns.clear(container);
 
     if (!record) {
@@ -452,7 +533,7 @@
       metaItem('Kommunikationspartner', source.communicationPartnerID, query),
       metaItem('Eigene Partner-ID', source.ownPartnerID, query),
       metaItem('Kategorie', source.messageCategory, query),
-      metaItem('Referenz', source.referenceMessageID, query),
+      referenceItem(record, chain.target, query),
       metaItem('Austauschweg', source.exchangeMethod, query),
     ]);
 
@@ -472,6 +553,7 @@
     ns.append(container, [
       head,
       meta,
+      chainSection(chain.sources),
       interchangeSection(derived.interchange, query),
       // Befunde zum Austausch als Ganzes stehen ueber der Ansichtsumschaltung,
       // damit sie auch in der Rohdatenansicht sichtbar bleiben.

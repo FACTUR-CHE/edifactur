@@ -672,6 +672,26 @@ pre {
   margin: 0;
 }
 
+/* -- Vorgangskette ------------------------------------------------------- */
+
+.chain {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chain li + li {
+  margin-block-start: 4px;
+}
+
+/* Eine Referenz ohne geladenen Datensatz bleibt Text. Der Zusatz sagt,
+   warum hier nichts zu klicken ist. */
+.reference-missing small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .meta dt {
   color: var(--brand);
   font: 700 11px var(--font-sans);

@@ -7,6 +7,7 @@ import '../src/records.js';
 // Die Quelldateien sind klassische Skripte ohne export; sie werden per
 // Seiteneffekt geladen und legen ihre Namen im Namensraum ab.
 const {
+  buildReferenceIndex,
   clampPage,
   createRecordFromEdifact,
   extractOptionValues,
@@ -209,5 +210,73 @@ describe('pageCount', () => {
   it('rundet auf', () => {
     assert.equal(pageCount(251, 250), 2);
     assert.equal(pageCount(500, 250), 2);
+  });
+});
+
+describe('buildReferenceIndex', () => {
+  /** @returns {object} Datensatz mit Kennung und Referenz. */
+  const record = (id, messageID, referenceMessageID) =>
+    normalizeRecord({ ID: id, messageID, referenceMessageID, payload: { payload: '' } }, id);
+
+  it('verknuepft Referenz und Nachrichtenkennung in beide Richtungen', () => {
+    const utilmd = record('r1', 'MSG-1');
+    const aperak = record('r2', 'MSG-2', 'MSG-1');
+    const { targets, sources } = buildReferenceIndex([utilmd, aperak]);
+
+    assert.equal(targets.get('r2'), 'r1');
+    assert.deepEqual(sources.get('r1'), ['r2']);
+    assert.equal(targets.has('r1'), false);
+  });
+
+  it('sammelt mehrere Verweise auf dieselbe Nachricht', () => {
+    const index = buildReferenceIndex([
+      record('r1', 'MSG-1'),
+      record('r2', 'MSG-2', 'MSG-1'),
+      record('r3', 'MSG-3', 'MSG-1'),
+    ]);
+
+    assert.deepEqual(index.sources.get('r1'), ['r2', 'r3']);
+  });
+
+  it('laesst eine Referenz auf eine nicht geladene Nachricht offen', () => {
+    const index = buildReferenceIndex([record('r1', 'MSG-1', 'MSG-UNBEKANNT')]);
+
+    assert.equal(index.targets.size, 0);
+    assert.equal(index.sources.size, 0);
+  });
+
+  it('ignoriert einen Selbstverweis', () => {
+    const index = buildReferenceIndex([record('r1', 'MSG-1', 'MSG-1')]);
+
+    assert.equal(index.targets.size, 0);
+    assert.equal(index.sources.size, 0);
+  });
+
+  it('loest bei doppelter Nachrichtenkennung auf den ersten Datensatz auf', () => {
+    const index = buildReferenceIndex([
+      record('r1', 'MSG-1'),
+      record('r2', 'MSG-1'),
+      record('r3', 'MSG-3', 'MSG-1'),
+    ]);
+
+    assert.equal(index.targets.get('r3'), 'r1');
+  });
+
+  it('ignoriert leere und fehlende Kennungen', () => {
+    const index = buildReferenceIndex([
+      record('r1', '', ''),
+      record('r2', undefined, undefined),
+      record('r3', '   ', '   '),
+    ]);
+
+    assert.equal(index.targets.size, 0);
+    assert.equal(index.sources.size, 0);
+  });
+
+  it('verarbeitet einen leeren Bestand', () => {
+    const index = buildReferenceIndex([]);
+
+    assert.equal(index.targets.size, 0);
+    assert.equal(index.sources.size, 0);
   });
 });

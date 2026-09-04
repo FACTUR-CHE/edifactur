@@ -168,6 +168,59 @@
   }
 
   /**
+   * Liest ein Metadatenfeld als nicht leere Zeichenkette.
+   *
+   * @param {Record} record
+   * @param {string} field
+   * @returns {string} Leer, wenn das Feld fehlt oder kein String ist.
+   */
+  function metaField(record, field) {
+    const value = record.source[field];
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  /**
+   * Verknuepft Datensaetze ueber `referenceMessageID` mit `messageID`.
+   *
+   * Ein APERAK oder CONTRL wird fast immer nur geoeffnet, um die abgelehnte
+   * Ursprungsnachricht zu finden. Der Index macht daraus einen Klick, in
+   * beide Richtungen.
+   *
+   * Ist eine `messageID` doppelt vergeben, gewinnt der erste Datensatz. Eine
+   * Referenz kann nicht mehrdeutig aufgeloest werden, und eine willkuerliche
+   * Auswahl waere schlechter als eine feste.
+   *
+   * @param {Record[]} records
+   * @returns {{targets: Map<string, string>, sources: Map<string, string[]>}}
+   *   `targets`: Datensatz -> referenzierter Datensatz.
+   *   `sources`: Datensatz -> Datensaetze, die auf ihn verweisen.
+   */
+  function buildReferenceIndex(records) {
+    const byMessageId = new Map();
+    for (const record of records) {
+      const messageId = metaField(record, 'messageID');
+      if (messageId && !byMessageId.has(messageId)) byMessageId.set(messageId, record.id);
+    }
+
+    const targets = new Map();
+    const sources = new Map();
+
+    for (const record of records) {
+      const reference = metaField(record, 'referenceMessageID');
+      if (!reference) continue;
+
+      const targetId = byMessageId.get(reference);
+      // Ein Selbstverweis ergibt keinen Sprung und keine Rueckrichtung.
+      if (!targetId || targetId === record.id) continue;
+
+      targets.set(record.id, targetId);
+      sources.set(targetId, [...(sources.get(targetId) ?? []), record.id]);
+    }
+
+    return { targets, sources };
+  }
+
+  /**
    * Sammelt die vorkommenden Werte eines Metadatenfeldes fuer die Filterlisten.
    *
    * @param {Record[]} records
@@ -250,6 +303,7 @@
   ns.normalizeRecords = normalizeRecords;
   ns.uniqueRecordId = uniqueRecordId;
   ns.createRecordFromEdifact = createRecordFromEdifact;
+  ns.buildReferenceIndex = buildReferenceIndex;
   ns.extractOptionValues = extractOptionValues;
   ns.filterRecords = filterRecords;
   ns.clampPage = clampPage;

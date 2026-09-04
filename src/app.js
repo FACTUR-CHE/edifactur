@@ -84,6 +84,10 @@
 
   const state = {
     records: [],
+    /** @type {Map<string, object>} Datensatzkennung -> Datensatz. */
+    recordsById: new Map(),
+    /** @type {{targets: Map<string, string>, sources: Map<string, string[]>}} */
+    references: { targets: new Map(), sources: new Map() },
     filtered: [],
     /** @type {string|null} */
     selectedId: null,
@@ -182,13 +186,93 @@
     return state.filtered.find((record) => record.id === state.selectedId) ?? null;
   }
 
+  /**
+   * Uebernimmt einen neuen Bestand und baut die abgeleiteten Indizes.
+   *
+   * Einziger Weg, `state.records` zu setzen -- sonst laufen Kennungsindex und
+   * Referenzindex irgendwann aus dem Tritt.
+   *
+   * @param {object[]} records
+   */
+  function setRecords(records) {
+    state.records = records;
+    state.recordsById = new Map(records.map((record) => [record.id, record]));
+    state.references = ns.buildReferenceIndex(records);
+  }
+
+  /**
+   * Loest die Vorgangskette eines Datensatzes zu Datensaetzen auf.
+   *
+   * @param {object|null} record
+   * @returns {{target: object|null, sources: object[]}}
+   */
+  function referenceChain(record) {
+    if (!record) return { target: null, sources: [] };
+
+    const targetId = state.references.targets.get(record.id);
+    return {
+      target: targetId ? (state.recordsById.get(targetId) ?? null) : null,
+      sources: (state.references.sources.get(record.id) ?? [])
+        .map((id) => state.recordsById.get(id))
+        .filter(Boolean),
+    };
+  }
+
   function renderDetailPane() {
+    const record = selectedRecord();
     ns.renderDetail(dom.detail, {
-      record: selectedRecord(),
+      record,
       query: state.query,
       activeTab: state.activeTab,
       activeMessage: state.activeMessage,
+      chain: referenceChain(record),
     });
+  }
+
+  /**
+   * Waehlt einen Datensatz anhand seiner Kennung aus und macht ihn sichtbar.
+   *
+   * @param {string} id
+   */
+  function gotoRecord(id) {
+    const record = state.recordsById.get(id);
+    if (!record) {
+      showNotice('Der referenzierte Datensatz ist nicht geladen.', 'warning');
+      return;
+    }
+
+    state.selectedId = id;
+    state.activeTab = 'structured';
+    state.activeMessage = 0;
+
+    // Ein aktiver Filter darf den Sprung nicht verhindern. Liegt das Ziel
+    // ausserhalb der Treffermenge, werden Suche und Filter zurueckgesetzt --
+    // sonst waere der Klick wirkungslos.
+    if (ns.filterRecords([record], readCriteria()).length === 0) {
+      resetControls();
+      showNotice(
+        'Suche und Filter wurden zurückgesetzt, damit die referenzierte Nachricht sichtbar ist.',
+        'warning',
+      );
+    } else {
+      hideNotice();
+    }
+
+    applyFilters({ resetPage: true });
+
+    // Der Zieldatensatz kann auf einer spaeteren Seite liegen. Ohne diesen
+    // Sprung stuende er im Detailbereich, waere in der Liste aber nicht zu
+    // sehen.
+    const index = state.filtered.findIndex((entry) => entry.id === id);
+    const page = index >= 0 ? Math.floor(index / PAGE_SIZE) : 0;
+    if (page !== state.page) {
+      state.page = page;
+      render();
+    }
+
+    // Der Detailbereich wurde neu aufgebaut, der geklickte Knoten existiert
+    // nicht mehr. Der Fokus wandert deshalb auf den Listeneintrag.
+    dom.recordList.querySelector('[aria-current="true"]')?.focus();
   }
 
   function render() {
@@ -286,7 +370,7 @@
       hideNotice();
     }
 
-    state.records = ns.normalizeRecords(valid);
+    setRecords(ns.normalizeRecords(valid));
     state.selectedId = state.records[0].id;
     state.activeTab = 'structured';
     state.activeMessage = 0;
@@ -321,7 +405,7 @@
     const record = format.create(trimmed, format.fallbackId);
     record.id = ns.uniqueRecordId(record.id, new Set(state.records.map((entry) => entry.id)));
 
-    state.records = [record, ...state.records];
+    setRecords([record, ...state.records]);
     state.selectedId = record.id;
     state.activeTab = 'structured';
     state.activeMessage = 0;
@@ -426,6 +510,12 @@
   dom.detail.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
+
+    const jump = target.closest('[data-goto]');
+    if (jump) {
+      gotoRecord(jump.dataset.goto);
+      return;
+    }
 
     const viewTab = target.closest('[data-tab]');
     if (viewTab) {
