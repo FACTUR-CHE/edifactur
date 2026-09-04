@@ -321,6 +321,59 @@ describe('Detailbereich zeichnet die aufbereiteten Inhalte', () => {
     assert.ok(tags.some((entry) => entry.includes('DEMO-MALO-0001')));
   });
 
+  it('bietet die vorkommenden Segmenttypen mit Anzahl an', () => {
+    const node = detail(recordOf("UNH+1+MSCONS:D:04B:UN'QTY+220:1'QTY+220:2'UNT+4+1'"));
+    const chips = byClass(node, 'segment-chip');
+
+    assert.deepEqual(
+      chips.map((chip) => chip.dataset.segment),
+      ['UNH', 'QTY', 'UNT'],
+    );
+    assert.equal(textOf(chips[1]), 'QTY2');
+    assert.ok(chips.every((chip) => chip.attributes['aria-pressed'] === 'false'));
+  });
+
+  it('zeigt nur die gewaehlten Segmenttypen und sagt die Einschraenkung an', () => {
+    const record = recordOf("UNH+1+MSCONS:D:04B:UN'QTY+220:1'QTY+220:2'LOC+172+ZP-1'UNT+5+1'");
+    const node = detail(record, { segmentFilter: ['QTY'] });
+
+    assert.equal(byClass(node, 'segment').length, 2);
+    const status = byClass(node, 'segment-status')[0];
+    assert.equal(status.attributes.role, 'status');
+    assert.ok(textOf(status).includes('Gefiltert: 2 von 5 Segmenten'));
+    assert.ok(textOf(status).includes('QTY'));
+    assert.equal(byClass(node, 'segment-list-filtered').length, 1);
+    assert.equal(
+      byClass(node, 'segment-chip').find((chip) => chip.dataset.segment === 'QTY').attributes[
+        'aria-pressed'
+      ],
+      'true',
+    );
+  });
+
+  it('laesst mehrere Typen gleichzeitig zu', () => {
+    const record = recordOf("UNH+1+MSCONS:D:04B:UN'QTY+220:1'LOC+172+ZP-1'UNT+4+1'");
+
+    assert.equal(byClass(detail(record, { segmentFilter: ['QTY', 'LOC'] }), 'segment').length, 2);
+  });
+
+  it('ignoriert einen Typ, den die Nachricht nicht enthaelt', () => {
+    // Sonst bliebe nach dem Wechsel der Nachricht eine leere Ansicht stehen.
+    const record = recordOf("UNH+1+MSCONS:D:04B:UN'QTY+220:1'UNT+3+1'");
+    const node = detail(record, { segmentFilter: ['ZZZ'] });
+
+    assert.equal(byClass(node, 'segment').length, 3);
+    assert.ok(textOf(byClass(node, 'segment-status')[0]).includes('Alle 3 Segmente'));
+  });
+
+  it('laesst die Rohdatenansicht vollstaendig', () => {
+    const payload = "UNH+1+MSCONS:D:04B:UN'QTY+220:1'LOC+172+ZP-1'UNT+4+1'";
+    const node = detail(recordOf(payload), { activeTab: 'raw', segmentFilter: ['QTY'] });
+
+    assert.ok(textOf(node).includes('LOC+172+ZP-1'), 'Rohdaten wurden gefiltert');
+    assert.equal(byClass(node, 'segment-filter').length, 0);
+  });
+
   it('hebt Suchtreffer hervor', () => {
     const node = detail(recordOf("UNH+1+UTILMD:D:11A:UN'BGM+E01+DOK-1+9'UNT+3+1'"), {
       query: 'DOK-1',

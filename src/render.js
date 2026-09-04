@@ -699,6 +699,88 @@
   }
 
   /**
+   * Zaehlt die vorkommenden Segmenttypen.
+   *
+   * Reihenfolge des ersten Auftretens, nicht alphabetisch: so steht die
+   * Auswahl in derselben Ordnung wie die Nachricht darunter.
+   *
+   * @param {object[]} segments
+   * @returns {{tag: string, count: number}[]}
+   */
+  function segmentCounts(segments) {
+    const counts = new Map();
+    for (const segment of segments) counts.set(segment.tag, (counts.get(segment.tag) ?? 0) + 1);
+    return [...counts].map(([tag, count]) => ({ tag, count }));
+  }
+
+  /**
+   * Baut die Auswahl der Segmenttypen.
+   *
+   * Schaltflaechen und kein Mehrfach-Select: `aria-pressed` sagt den Zustand
+   * an, und ein Tag ist mit einem Tastendruck an- und wieder abgewaehlt.
+   *
+   * @param {{tag: string, count: number}[]} counts
+   * @param {string[]} active
+   * @returns {HTMLElement}
+   */
+  function segmentFilterBar(counts, active) {
+    return ns.el(
+      'div',
+      { class: 'segment-filter', role: 'group', 'aria-label': 'Segmente nach Typ filtern' },
+      counts.map(({ tag, count }) =>
+        ns.el(
+          'button',
+          {
+            class: 'segment-chip',
+            type: 'button',
+            dataset: { segment: tag },
+            'aria-pressed': String(active.includes(tag)),
+          },
+          [tag, ns.el('span', { class: 'segment-chip-count', text: ns.formatCount(count) })],
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Sagt an, wie viele Segmente zu sehen sind.
+   *
+   * Eine gefilterte Ansicht darf nicht fuer die vollstaendige Nachricht
+   * gehalten werden -- deshalb steht die Einschraenkung im Text und nicht nur
+   * in der Farbe, und `role="status"` traegt sie auch vor.
+   *
+   * @param {number} shown
+   * @param {number} total
+   * @param {string[]} active
+   * @returns {HTMLElement}
+   */
+  function segmentFilterStatus(shown, total, active) {
+    const filtered = active.length > 0;
+    const text = filtered
+      ? `Gefiltert: ${ns.formatCount(shown)} von ${ns.formatCount(total)} Segmenten · ${active.join(', ')}`
+      : `Alle ${ns.formatCount(total)} Segmente`;
+
+    return ns.el(
+      'p',
+      {
+        class: filtered ? 'segment-status segment-status-active' : 'segment-status',
+        role: 'status',
+      },
+      [
+        text,
+        filtered
+          ? ns.el('button', {
+              class: 'link-button',
+              type: 'button',
+              dataset: { segmentClear: 'true' },
+              text: 'Filter aufheben',
+            })
+          : null,
+      ],
+    );
+  }
+
+  /**
    * Baut die strukturierte Ansicht: bei mehreren Nachrichten eine eigene
    * Tab-Leiste, darunter die Segmente der aktiven Nachricht.
    *
@@ -706,9 +788,12 @@
    * @param {object} options
    * @param {string} options.query
    * @param {number} options.activeMessage
+   * @param {string[]} options.segmentFilter Ausgewaehlte Segment-Tags; leer
+   *   bedeutet alle. Gilt nur fuer diese Ansicht -- die Rohdaten bleiben
+   *   vollstaendig.
    * @returns {Node[]}
    */
-  function renderStructured(record, { query, activeMessage }) {
+  function renderStructured(record, { query, activeMessage, segmentFilter }) {
     const { messages } = record.derived;
 
     if (messages.length === 0) {
@@ -731,7 +816,17 @@
       .join(' · ');
 
     const separator = record.derived.delimiters.segment;
+    const counts = segmentCounts(message.segments);
+    // Ein Tag aus einer vorher betrachteten Nachricht wuerde hier alles
+    // ausblenden. Er zaehlt deshalb nicht als Auswahl.
+    const active = segmentFilter.filter((tag) => counts.some((entry) => entry.tag === tag));
+    const shown =
+      active.length > 0
+        ? message.segments.filter((segment) => active.includes(segment.tag))
+        : message.segments;
 
+    // Die Kopierziele bleiben bei der ganzen Nachricht: gefiltert wird die
+    // Anzeige, nicht der Inhalt.
     const section = ns.el('div', { class: 'section' }, [
       ns.el('div', { class: 'section-head' }, [
         ns.el('h3', { text: heading }),
@@ -749,11 +844,17 @@
         ]),
       ]),
       findingList(findingsFor(record, index), 'Befunde dieser Nachricht'),
+      segmentFilterBar(counts, active),
+      segmentFilterStatus(shown.length, message.segments.length, active),
       ns.el('p', {
         class: 'segment-hint',
         text: 'Klick auf ein Segment-Tag kopiert die Segmentzeile, Klick auf einen Wert den Einzelwert.',
       }),
-      ...message.segments.map((segment) => segmentRow(segment, query, separator)),
+      ns.el(
+        'div',
+        { class: active.length > 0 ? 'segment-list segment-list-filtered' : 'segment-list' },
+        shown.map((segment) => segmentRow(segment, query, separator)),
+      ),
     ]);
 
     if (messages.length === 1) return [section];
@@ -785,13 +886,21 @@
    * @param {string} options.query
    * @param {'structured'|'raw'} options.activeTab
    * @param {number} options.activeMessage
+   * @param {string[]} [options.segmentFilter] Segment-Tags der Anzeige.
    * @param {{target: object|null, sources: object[]}} [options.chain]
    *   Aufgeloeste Vorgangskette. Die Aufloesung liegt in app.js, damit diese
    *   Schicht keine Datensatzsuche kennt.
    */
   function renderDetail(
     container,
-    { record, query, activeTab, activeMessage, chain = { target: null, sources: [] } },
+    {
+      record,
+      query,
+      activeTab,
+      activeMessage,
+      segmentFilter = [],
+      chain = { target: null, sources: [] },
+    },
   ) {
     ns.clear(container);
 
@@ -861,7 +970,7 @@
           ]),
           ns.el('pre', {}, ns.highlighted(derived.payload, query)),
         ]
-      : renderStructured(record, { query, activeMessage });
+      : renderStructured(record, { query, activeMessage, segmentFilter });
 
     ns.append(container, [
       head,

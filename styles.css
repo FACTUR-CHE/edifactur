@@ -1146,6 +1146,68 @@ pre {
   font-size: 12px;
 }
 
+/* -- Segmentfilter -------------------------------------------------------- */
+
+.segment-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 12px 8px;
+}
+
+.segment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--line-field);
+  background: var(--surface);
+  color: var(--brand-deep);
+  font: 700 12px var(--font-mono);
+  cursor: pointer;
+}
+
+.segment-chip[aria-pressed='true'] {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--surface);
+}
+
+.segment-chip-count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.segment-chip[aria-pressed='true'] .segment-chip-count {
+  color: inherit;
+}
+
+.segment-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Der gefilterte Zustand muss auffallen: eine gekuerzte Nachricht darf nicht
+   fuer die vollstaendige gehalten werden. Farbe allein traegt das nicht --
+   der Text nennt die Einschraenkung ebenfalls. */
+.segment-status-active {
+  padding: 6px 9px;
+  border-inline-start: 3px solid var(--accent);
+  background: var(--mark-surface);
+  color: var(--brand-deep);
+  font-weight: 700;
+}
+
+.segment-list-filtered {
+  border-inline-start: 3px solid var(--accent);
+  padding-inline-start: 9px;
+}
+
 mark {
   padding: 0;
   background: var(--mark-surface);

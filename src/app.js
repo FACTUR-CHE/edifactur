@@ -104,8 +104,22 @@
     /** @type {'structured'|'raw'} */
     activeTab: 'structured',
     activeMessage: 0,
+    /** @type {string[]} Segment-Tags der strukturierten Ansicht; leer = alle. */
+    segmentFilter: [],
     page: 0,
   };
+
+  /**
+   * Setzt die Ansicht des Detailbereichs auf den Anfang zurueck.
+   *
+   * Ein Segmentfilter gehoert zu genau einer Nachricht: in der naechsten
+   * blendete er entweder alles aus oder etwas anderes als gemeint. Er wird
+   * deshalb ueberall dort zurueckgenommen, wo die gezeigte Nachricht wechselt.
+   */
+  function resetDetailView() {
+    state.activeMessage = 0;
+    state.segmentFilter = [];
+  }
 
   /**
    * Verzoegert die Ausfuehrung, bis `delay` Millisekunden keine neue Eingabe
@@ -359,8 +373,20 @@
       query: state.highlight,
       activeTab: state.activeTab,
       activeMessage: state.activeMessage,
+      segmentFilter: state.segmentFilter,
       chain: referenceChain(record),
     });
+  }
+
+  /**
+   * Nimmt einen Segmenttyp in die Anzeige auf oder wieder heraus.
+   *
+   * @param {string} tag
+   */
+  function toggleSegmentFilter(tag) {
+    state.segmentFilter = state.segmentFilter.includes(tag)
+      ? state.segmentFilter.filter((entry) => entry !== tag)
+      : [...state.segmentFilter, tag];
   }
 
   /**
@@ -444,7 +470,7 @@
 
     state.selectedId = id;
     state.activeTab = 'structured';
-    state.activeMessage = 0;
+    resetDetailView();
 
     // Ein aktiver Filter darf den Sprung nicht verhindern. Liegt das Ziel
     // ausserhalb der Treffermenge, werden Suche und Filter zurueckgesetzt --
@@ -508,7 +534,7 @@
 
     if (!state.filtered.some((record) => record.id === state.selectedId)) {
       state.selectedId = state.filtered[0]?.id ?? null;
-      state.activeMessage = 0;
+      resetDetailView();
     }
 
     render();
@@ -580,7 +606,7 @@
     setRecords(ns.normalizeRecords(valid));
     state.selectedId = state.records[0].id;
     state.activeTab = 'structured';
-    state.activeMessage = 0;
+    resetDetailView();
     state.page = 0;
 
     resetControls();
@@ -615,7 +641,7 @@
     setRecords([record, ...state.records]);
     state.selectedId = record.id;
     state.activeTab = 'structured';
-    state.activeMessage = 0;
+    resetDetailView();
     state.page = 0;
 
     fillFilterOptions();
@@ -672,14 +698,14 @@
     'input',
     debounce(() => {
       updateQuery(dom.search.value);
-      state.activeMessage = 0;
+      resetDetailView();
       applyFilters({ resetPage: true });
     }, SEARCH_DEBOUNCE_MS),
   );
 
   for (const { id } of FILTERS) {
     dom[id].addEventListener('change', () => {
-      state.activeMessage = 0;
+      resetDetailView();
       applyFilters({ resetPage: true });
     });
   }
@@ -690,21 +716,21 @@
   dom.rangePreset.addEventListener('change', () => {
     dom.rangeFrom.value = '';
     dom.rangeTo.value = '';
-    state.activeMessage = 0;
+    resetDetailView();
     applyFilters({ resetPage: true });
   });
 
   for (const id of ['rangeFrom', 'rangeTo']) {
     dom[id].addEventListener('change', () => {
       dom.rangePreset.value = '';
-      state.activeMessage = 0;
+      resetDetailView();
       applyFilters({ resetPage: true });
     });
   }
 
   dom.clearFilters.addEventListener('click', () => {
     resetControls();
-    state.activeMessage = 0;
+    resetDetailView();
     applyFilters({ resetPage: true });
     dom.search.focus();
   });
@@ -725,7 +751,7 @@
     const record = target.closest('[data-id]');
     if (record) {
       state.selectedId = record.dataset.id;
-      state.activeMessage = 0;
+      resetDetailView();
       render();
     }
   });
@@ -748,6 +774,24 @@
       return;
     }
 
+    const segmentChip = target.closest('[data-segment]');
+    if (segmentChip) {
+      const { segment } = segmentChip.dataset;
+      toggleSegmentFilter(segment);
+      renderDetailPane();
+      // Der Detailbereich wurde neu aufgebaut; ohne diesen Nachzug landete
+      // der Fokus nach jedem Tastendruck wieder am Anfang der Seite.
+      dom.detail.querySelector(`[data-segment="${segment}"]`)?.focus();
+      return;
+    }
+
+    if (target.closest('[data-segment-clear]')) {
+      state.segmentFilter = [];
+      renderDetailPane();
+      dom.detail.querySelector('[data-segment]')?.focus();
+      return;
+    }
+
     const viewTab = target.closest('[data-tab]');
     if (viewTab) {
       state.activeTab = viewTab.dataset.tab === 'raw' ? 'raw' : 'structured';
@@ -757,6 +801,9 @@
 
     const messageTab = target.closest('[data-message]');
     if (messageTab) {
+      // Andere Nachricht, andere Segmenttypen -- der Filter gehoert nicht
+      // dorthin.
+      resetDetailView();
       state.activeMessage = Number(messageTab.dataset.message);
       renderDetailPane();
     }
