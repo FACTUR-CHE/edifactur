@@ -16,6 +16,7 @@ Verarbeitung findet ausschließlich im Browser statt.
 | Karte                 | Beschreibung                                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Suche und Filter      | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
+| Fachliche Kennungen   | Marktlokation, Zählpunkt, Prüfidentifikator und Referenzen stehen im Listeneintrag.                           |
 | Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                                            |
 | Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                                             |
 | Rohdaten              | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                                                |

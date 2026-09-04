@@ -693,6 +693,31 @@ pre {
   color: var(--brand);
 }
 
+/* Die fachlichen Kennungen aus der Nutzlast. Sie stehen unter den
+   Umschlagdaten, weil man nach ihnen sucht, sie aber den Eintrag nicht
+   anfuehren sollen. */
+.record-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  margin-block-start: 6px;
+  font-size: 13px;
+}
+
+.record-tag-key {
+  margin-inline-end: 4px;
+  color: var(--ink-soft);
+  font: 700 10px/1.6 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Zaehlt die Werte, die nicht mehr in die Zeile passen. */
+.record-tag-more {
+  margin-inline-start: 4px;
+  color: var(--ink-soft);
+}
+
 .aggregate-badge,
 .test-badge {
   display: inline-block;

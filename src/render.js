@@ -118,6 +118,41 @@
     ]);
   }
 
+  /** Werte je Kennung im Listeneintrag, bevor gezaehlt statt gezeigt wird. */
+  const SHOWN_IDENTIFIER_VALUES = 2;
+
+  /**
+   * Zeichnet eine fachliche Kennung als Marke im Listeneintrag.
+   *
+   * Mehrere Werte werden nicht auf den ersten verkuerzt -- in einer
+   * Sammelnachricht waere das eine willkuerliche Auswahl, die aussieht wie
+   * die ganze Wahrheit. Gezeigt werden die ersten beiden, der Rest wird
+   * gezaehlt.
+   *
+   * @param {{label: string, values: string[]}} identifier
+   * @param {string} query
+   * @returns {HTMLElement}
+   */
+  function identifierTag(identifier, query) {
+    const shown = identifier.values.slice(0, SHOWN_IDENTIFIER_VALUES);
+    const rest = identifier.values.length - shown.length;
+
+    const values = [];
+    for (const [index, value] of shown.entries()) {
+      if (index > 0) values.push(', ');
+      values.push(ns.highlighted(value, query));
+    }
+
+    return ns.el('span', { class: 'record-tag' }, [
+      ns.el('span', { class: 'record-tag-key', text: identifier.label }),
+      ' ',
+      ...values,
+      rest > 0
+        ? ns.el('span', { class: 'record-tag-more', text: `+${ns.formatCount(rest)}` })
+        : null,
+    ]);
+  }
+
   /**
    * @param {object} record
    * @param {string} query
@@ -153,6 +188,15 @@
         : null,
     ]);
 
+    const identifiers =
+      derived.identifiers.length > 0
+        ? ns.el(
+            'span',
+            { class: 'record-tags' },
+            derived.identifiers.map((identifier) => identifierTag(identifier, query)),
+          )
+        : null;
+
     return ns.el(
       'button',
       {
@@ -161,7 +205,7 @@
         dataset: { id: record.id },
         'aria-current': isSelected ? 'true' : false,
       },
-      [top, meta],
+      [top, meta, identifiers],
     );
   }
 

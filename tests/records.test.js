@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import '../src/edifact.js';
@@ -21,6 +22,7 @@ const {
   normalizeRecords,
   pageCount,
   parseQuery,
+  readIdentifiers,
 } = globalThis.EdifactExplorer;
 
 /** @returns {object} Rohdatensatz wie in einer Exportdatei. */
@@ -188,6 +190,163 @@ describe('filterRecords', () => {
 
   it('liefert ein leeres Ergebnis, wenn nichts passt', () => {
     assert.deepEqual(filterRecords(records, { query: 'gibtesnicht' }), []);
+  });
+});
+
+describe('readIdentifiers', () => {
+  /** @returns {object[]} Kennungen einer Nutzlast, wie im Datensatz abgelegt. */
+  const identifiers = (payload, messageId = '') =>
+    normalizeRecord({ ID: 'x', messageID: messageId, payload: { payload } }, 'x').derived
+      .identifiers;
+
+  /** @returns {object} Kennungen nach Bezeichnung, fuer knappe Erwartungen. */
+  const byLabel = (list) =>
+    Object.fromEntries(list.map((entry) => [entry.label, entry.values.join('|')]));
+
+  it('liest Marktlokation und Pruefidentifikator aus UTILMD', () => {
+    const found = byLabel(
+      identifiers(
+        "UNH+1+UTILMD:D:11A:UN:S2.1'BGM+E02+VORGANG-1+9'LOC+Z16+DEMO-MALO-0001'" +
+          "RFF+Z13+'RFF+Z13:11039'UNT+5+1'",
+      ),
+    );
+
+    assert.equal(found.MaLo, 'DEMO-MALO-0001');
+    assert.equal(found['Prüf-ID'], '11039');
+    assert.equal(found.Vorgang, 'VORGANG-1');
+  });
+
+  it('liest den Zaehlpunkt aus MSCONS', () => {
+    const found = byLabel(
+      identifiers("UNH+1+MSCONS:D:04B:UN:2.4'BGM+7+M-1+9'LOC+172+DEMO-ZP-0001'UNT+4+1'"),
+    );
+
+    assert.equal(found['Zählpunkt'], 'DEMO-ZP-0001');
+  });
+
+  it('haelt einen unbekannten Ortsqualifier bei seinem Code', () => {
+    // Ein Code, der nicht hinterlegt ist, ist unbelegt und nicht ungueltig --
+    // eine erfundene Bezeichnung waere schlimmer als der rohe Qualifier.
+    const found = byLabel(identifiers("UNH+1+UTILMD:D:11A:UN'LOC+Z99+WERT-1'UNT+3+1'"));
+
+    assert.equal(found['LOC Z99'], 'WERT-1');
+  });
+
+  it('nennt Z13 nur in UTILMD Pruefidentifikator', () => {
+    const found = byLabel(identifiers("UNH+1+APERAK:D:07B:UN'RFF+Z13:11039'UNT+3+1'"));
+
+    assert.equal(found['Prüf-ID'], undefined);
+    assert.equal(found.Referenz, '11039');
+  });
+
+  it('haelt mehrere Lokationen einer Sammelnachricht auseinander', () => {
+    const [location] = identifiers(
+      "UNH+1+UTILMD:D:11A:UN'LOC+Z16+MALO-1'UNT+3+1'" +
+        "UNH+2+UTILMD:D:11A:UN'LOC+Z16+MALO-2'UNT+3+2'",
+    );
+
+    assert.deepEqual(location.values, ['MALO-1', 'MALO-2']);
+  });
+
+  it('fuehrt einen Wert nur einmal', () => {
+    const [location] = identifiers("UNH+1+UTILMD:D:11A:UN'LOC+Z16+MALO-1'LOC+Z16+MALO-1'UNT+4+1'");
+
+    assert.deepEqual(location.values, ['MALO-1']);
+  });
+
+  it('wiederholt die Nachrichtenkennung nicht als Vorgang', () => {
+    // Sie steht schon in der Kopfzeile des Listeneintrags.
+    const found = byLabel(identifiers("UNH+1+UTILMD:D:11A:UN'BGM+E02+DEMO-1+9'UNT+3+1'", 'DEMO-1'));
+
+    assert.equal(found.Vorgang, undefined);
+  });
+
+  it('liest die Positionsnummer nur aus einem LIN mit Kennung', () => {
+    assert.equal(byLabel(identifiers("UNH+1+MSCONS:D:04B:UN'LIN+1'UNT+3+1'")).Position, undefined);
+    assert.equal(
+      byLabel(identifiers("UNH+1+MSCONS:D:04B:UN'LIN+1++ARTIKEL-1:SA'UNT+3+1'")).Position,
+      'ARTIKEL-1',
+    );
+  });
+
+  it('erfindet nichts, wo nichts steht', () => {
+    assert.deepEqual(identifiers("UNH+1+CONTRL:D:03B:UN'UNT+2+1'"), []);
+    assert.deepEqual(identifiers(''), []);
+    assert.deepEqual(identifiers("UNH+1+UTILMD:D:11A:UN'LOC+Z16'BGM+E02'UNT+4+1'"), []);
+  });
+
+  it('ordnet Ortsangaben vor die uebrigen Kennungen', () => {
+    const found = identifiers(
+      "UNH+1+UTILMD:D:11A:UN'BGM+E02+VORGANG-1+9'RFF+ACE:REF-1'" +
+        "RFF+Z13:11039'LOC+Z16+MALO-1'UNT+6+1'",
+    );
+
+    assert.deepEqual(
+      found.map((entry) => entry.label),
+      ['MaLo', 'Prüf-ID', 'Vorgang', 'Referenz'],
+    );
+  });
+
+  it('ist ueber die Namensraumfunktion direkt aufrufbar', () => {
+    assert.deepEqual(readIdentifiers([], 'DEMO-1'), []);
+  });
+});
+
+describe('readIdentifiers ueber die Beispieldatei', () => {
+  // Die Beispieldatei ist der Einstieg fuer neue Anwenderinnen und deckt jedes
+  // unterstuetzte Format einmal ab. Was sie zeigt, ist damit auch die
+  // Zusicherung, die dieser Test festhaelt.
+  const sample = JSON.parse(readFileSync(new URL('../data/sample-messages.json', import.meta.url)));
+  const records = normalizeRecords(sample.value);
+
+  /** @returns {object} Kennungen eines Datensatzes nach Bezeichnung. */
+  const found = (id) =>
+    Object.fromEntries(
+      records
+        .find((record) => record.id === id)
+        .derived.identifiers.map((entry) => [entry.label, entry.values.join('|')]),
+    );
+
+  it('deckt jedes Format der Datei ab', () => {
+    const formats = new Set(records.map((record) => record.source.messageFormat));
+    assert.equal(records.length, 15);
+    assert.equal(formats.size, 14);
+  });
+
+  it('findet in jedem Datensatz mindestens eine Kennung', () => {
+    for (const record of records) {
+      assert.ok(record.derived.identifiers.length > 0, `${record.id} ohne fachliche Kennung`);
+    }
+  });
+
+  it('liest UTILMD mit Marktlokation und Pruefidentifikator', () => {
+    assert.deepEqual(found('demo-utilmd-001'), {
+      MaLo: 'DEMO-MALO-0001',
+      'Prüf-ID': 'DEMO-REF-001',
+      Vorgang: 'DEMOUTILMD001',
+    });
+  });
+
+  it('liest den Zaehlpunkt aus MSCONS', () => {
+    assert.equal(found('demo-mscons-001')['Zählpunkt'], 'DEMO-MALO-0001');
+  });
+
+  it('liest die Referenz aus APERAK und COMDIS', () => {
+    assert.equal(found('demo-aperak-001').Referenz, 'DEMO-UTILMD-001');
+    assert.equal(found('demo-comdis-001').Referenz, 'DEMO-ORDERS-001');
+  });
+
+  it('liest die Rechnungsnummer aus INVOIC und REMADV', () => {
+    assert.equal(found('demo-invoic-001').Vorgang, 'RE-DEMO-2026-001');
+    assert.equal(found('demo-remadv-001').Referenz, 'RE-DEMO-2026-001');
+  });
+
+  it('haelt beide Lokationen der Sammelnachricht', () => {
+    assert.equal(found('demo-utilmd-batch-001').MaLo, 'DEMO-MALO-0101|DEMO-MALO-0102');
+  });
+
+  it('gibt CONTRL nur die Dokumentennummer', () => {
+    assert.deepEqual(found('demo-contrl-001'), { Vorgang: 'DEMOCONTRL001' });
   });
 });
 

@@ -223,6 +223,101 @@
   }
 
   /**
+   * Kurzbezeichnungen fuer die Ortsangaben, die in der Trefferliste stehen.
+   *
+   * Bewusst knapp: die Liste hat wenig Platz, und "MaLo"/"MeLo" ist die
+   * Sprache des Fachbereichs. Ein Qualifier, der hier fehlt, wird **nicht**
+   * geraten -- sein Code steht dann selbst als Bezeichnung (`LOC Z18`). Diese
+   * Zurueckhaltung ist dieselbe wie in codes.js: ein unbekannter Code ist
+   * unbelegt, nicht ungueltig.
+   */
+  const LOCATION_LABELS = Object.freeze({
+    172: 'Zählpunkt',
+    Z16: 'MaLo',
+    Z17: 'MeLo',
+  });
+
+  /** DE 1153: Referenz auf den Pruefidentifikator, in UTILMD. */
+  const CHECK_ID_QUALIFIER = 'Z13';
+
+  /**
+   * Reihenfolge der Kennungen im Listeneintrag. Die Ortsangaben zuerst -- nach
+   * ihnen wird gesucht, der Rest ordnet ein.
+   */
+  const IDENTIFIER_RANK = Object.freeze(['location', 'checkId', 'item', 'document', 'reference']);
+
+  /**
+   * Zieht die fachlichen Kennungen aus der Nutzlast.
+   *
+   * Sie stehen in den Segmenten, nicht im Umschlag: ohne sie muesste man
+   * vierzig Datensaetze einzeln oeffnen, um den richtigen zu finden.
+   *
+   * Erfunden wird nichts. Gelesen werden nur Stellen, an denen die Norm eine
+   * Kennung vorsieht: LOC (Ortsangabe), LIN (Positionsnummer im dritten
+   * Datenelement -- `LIN+1` allein ist eine Zaehlung, keine Kennung), BGM
+   * (Dokumentennummer) und RFF (Referenz). Fehlt eine Stelle, fehlt der
+   * Eintrag.
+   *
+   * @param {object[]} messages Ergebnis von parseEdifact.
+   * @param {string} messageId Kennung, die der Listeneintrag ohnehin zeigt.
+   * @returns {{kind: string, label: string, values: string[]}[]} Sortiert,
+   *   ohne Doppel, ohne Leerwerte.
+   */
+  function readIdentifiers(messages, messageId) {
+    /** @type {Map<string, {kind: string, label: string, values: Set<string>}>} */
+    const groups = new Map();
+
+    const add = (kind, key, label, value) => {
+      const text = typeof value === 'string' ? value.trim() : '';
+      if (text.length === 0) return;
+
+      const group = groups.get(key) ?? { kind, label, values: new Set() };
+      group.values.add(text);
+      groups.set(key, group);
+    };
+
+    for (const message of messages) {
+      for (const segment of message.segments) {
+        const [first, second, third] = segment.components;
+
+        if (segment.tag === 'LOC') {
+          const qualifier = first?.[0] ?? '';
+          add(
+            'location',
+            `location:${qualifier}`,
+            LOCATION_LABELS[qualifier] ?? `LOC ${qualifier}`.trim(),
+            second?.[0],
+          );
+        } else if (segment.tag === 'LIN') {
+          add('item', 'item', 'Position', third?.[0]);
+        } else if (segment.tag === 'BGM') {
+          // Meist die Nachrichtenkennung selbst -- die steht schon in der
+          // Kopfzeile des Eintrags und muss nicht doppelt erscheinen.
+          const document = second?.[0] ?? '';
+          if (document !== messageId) add('document', 'document', 'Vorgang', document);
+        } else if (segment.tag === 'RFF') {
+          const [qualifier, value] = first ?? [];
+          // Der Pruefidentifikator ist eine UTILMD-Eigenheit. Dieselbe
+          // Referenz in einem anderen Format so zu benennen waere geraten.
+          if (qualifier === CHECK_ID_QUALIFIER && message.type === 'UTILMD') {
+            add('checkId', 'checkId', 'Prüf-ID', value);
+          } else {
+            add('reference', 'reference', 'Referenz', value);
+          }
+        }
+      }
+    }
+
+    return [...groups.values()]
+      .map((group) => ({ kind: group.kind, label: group.label, values: [...group.values] }))
+      .sort(
+        (a, b) =>
+          IDENTIFIER_RANK.indexOf(a.kind) - IDENTIFIER_RANK.indexOf(b.kind) ||
+          a.label.localeCompare(b.label, 'de-DE'),
+      );
+  }
+
+  /**
    * Wandelt ein Eingabedatum in einen Zeitpunkt der Ortszeit.
    *
    * Ortszeit ist hier die richtige Wahl: die Anwenderin gibt den Tag ein, den
@@ -302,6 +397,7 @@
     const raw = source.payload?.payload;
     const payload = typeof raw === 'string' ? raw : '';
     const messages = ns.parseEdifact(payload);
+    const messageId = typeof source.messageID === 'string' ? source.messageID.trim() : '';
 
     return {
       id: typeof source.ID === 'string' && source.ID.length > 0 ? source.ID : fallbackId,
@@ -325,6 +421,8 @@
         // weil createRecordFromEdifact ueber diese Funktion laeuft.
         interchange: ns.readInterchangeHeader(messages),
         acknowledgements: messages.map(ns.readAcknowledgement).filter(Boolean),
+        // Einmal beim Aufbau, nicht bei jedem Zeichnen der Liste.
+        identifiers: readIdentifiers(messages, messageId),
         findings: ns.collectFindings(messages),
         segmentIndex: buildSegmentIndex(messages),
         searchIndex: buildSearchIndex(source, payload),
@@ -565,6 +663,7 @@
   ns.RANGE_PRESETS = RANGE_PRESETS;
   ns.resolveRange = resolveRange;
   ns.countUndatedRecords = countUndatedRecords;
+  ns.readIdentifiers = readIdentifiers;
   ns.filterRecords = filterRecords;
   ns.clampPage = clampPage;
   ns.pageCount = pageCount;
