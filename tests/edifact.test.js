@@ -14,6 +14,8 @@ const {
   readDelimiters,
   segmentLabel,
   splitEdifact,
+  splitKeepingRelease,
+  unescapeEdifact,
   validateEdifactSyntax,
 } = globalThis.EdifactExplorer;
 
@@ -44,6 +46,46 @@ describe('splitEdifact', () => {
 
   it('verarbeitet die leere Eingabe', () => {
     assert.deepEqual(splitEdifact('', '+', '?'), ['']);
+  });
+});
+
+describe('splitKeepingRelease', () => {
+  it('zerlegt am Trennzeichen', () => {
+    assert.deepEqual(splitKeepingRelease('a+b+c', '+', '?'), ['a', 'b', 'c']);
+  });
+
+  it('laesst die Maskierung stehen', () => {
+    assert.deepEqual(splitKeepingRelease('a?+b+c', '+', '?'), ['a?+b', 'c']);
+  });
+
+  it('laesst ein maskiertes Release-Zeichen stehen', () => {
+    assert.deepEqual(splitKeepingRelease('a??+b', '+', '?'), ['a??', 'b']);
+  });
+
+  it('behaelt ein Release-Zeichen am Ende', () => {
+    assert.deepEqual(splitKeepingRelease('ab?', '+', '?'), ['ab?']);
+  });
+
+  it('verarbeitet die leere Eingabe', () => {
+    assert.deepEqual(splitKeepingRelease('', '+', '?'), ['']);
+  });
+});
+
+describe('unescapeEdifact', () => {
+  it('hebt die Maskierung auf', () => {
+    assert.equal(unescapeEdifact('a?+b', '?'), 'a+b');
+  });
+
+  it('gibt ein maskiertes Release-Zeichen einmal aus', () => {
+    assert.equal(unescapeEdifact('a??b', '?'), 'a?b');
+  });
+
+  it('uebernimmt ein Release-Zeichen am Ende als Nutzdatenzeichen', () => {
+    assert.equal(unescapeEdifact('ab?', '?'), 'ab?');
+  });
+
+  it('laesst unmaskierten Text unveraendert', () => {
+    assert.equal(unescapeEdifact('abc', '?'), 'abc');
   });
 });
 
@@ -160,6 +202,57 @@ describe('parseEdifact', () => {
     assert.equal(segment.tag, 'UNH');
     assert.deepEqual(segment.elements, ['1', 'UTILMD:D:11A:UN']);
     assert.equal(segment.raw, 'UNH+1+UTILMD:D:11A:UN');
+  });
+
+  it('zerlegt Elemente zusaetzlich in Komponenten', () => {
+    const [group] = parseEdifact("UNH+1+UTILMD:D:11A:UN:5.1e'");
+    const [segment] = group.segments;
+
+    assert.deepEqual(segment.components, [['1'], ['UTILMD', 'D', '11A', 'UN', '5.1e']]);
+  });
+
+  it('behaelt leere Komponenten', () => {
+    const [group] = parseEdifact("NAD+MS+9900000000001::293'");
+    const [segment] = group.segments;
+
+    assert.deepEqual(segment.components, [['MS'], ['9900000000001', '', '293']]);
+  });
+
+  it('ergibt ohne Komponententrenner genau eine Komponente', () => {
+    const [group] = parseEdifact("BGM+E01+1'");
+    const [segment] = group.segments;
+
+    assert.deepEqual(segment.components, [['E01'], ['1']]);
+  });
+
+  it('zerreisst einen maskierten Komponententrenner nicht', () => {
+    const [group] = parseEdifact("FTX+ACB+++Beispiel?:Hinweis'");
+    const [segment] = group.segments;
+
+    assert.deepEqual(segment.elements, ['ACB', '', '', 'Beispiel:Hinweis']);
+    assert.deepEqual(segment.components[3], ['Beispiel:Hinweis']);
+  });
+
+  it('verliert einen maskierten Elementtrenner nicht beim Zerlegen der Segmente', () => {
+    const [group] = parseEdifact("FTX+ACB+++Betrag ?+ Zuschlag'");
+    const [segment] = group.segments;
+
+    assert.deepEqual(segment.elements, ['ACB', '', '', 'Betrag + Zuschlag']);
+  });
+
+  it('weist die UNA-Zeichen einzeln aus, ohne sie zu zerlegen', () => {
+    const [group] = parseEdifact("UNA:+.? 'UNH+1+UTILMD:D:11A:UN'");
+    const [una] = group.segments;
+
+    assert.deepEqual(una.elements, [':', '+', '.', '?', ' ', "'"]);
+    assert.deepEqual(una.components, [[':'], ['+'], ['.'], ['?'], [' '], ["'"]]);
+  });
+
+  it('zerlegt Komponenten auch bei abweichenden Trennzeichen', () => {
+    const groups = parseEdifact('UNA|;,* ~UNH;1;UTILMD|D|11A|UN~UNT;2;1~');
+    const header = groups[0].segments.find((segment) => segment.tag === 'UNH');
+
+    assert.deepEqual(header.components, [['1'], ['UTILMD', 'D', '11A', 'UN']]);
   });
 
   it('respektiert abweichende Trennzeichen aus dem UNA-Header', () => {

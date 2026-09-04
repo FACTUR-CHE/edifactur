@@ -103,18 +103,20 @@
   }
 
   /**
-   * Zerlegt `value` am `separator`.
+   * Zerlegt `value` am `separator` und laesst die Release-Zeichen stehen.
    *
-   * Ein `releaseChar` hebt die Sonderbedeutung des unmittelbar folgenden
-   * Zeichens auf. Steht es am Ende der Eingabe, gibt es kein Folgezeichen mehr,
-   * das es schuetzen koennte -- dann wird es als Nutzdatenzeichen uebernommen.
+   * Das ist die Grundlage fuer eine mehrstufige Zerlegung: erst am
+   * Elementtrenner, dann am Komponententrenner. Wuerde die erste Stufe die
+   * Maskierung schon aufheben, waere `?:` danach ein gewoehnlicher
+   * Doppelpunkt -- die zweite Stufe wuerde ihn faelschlich als Trenner lesen
+   * und eine Komponente zerreissen.
    *
    * @param {string} value
    * @param {string} separator
    * @param {string} releaseChar
-   * @returns {string[]} Immer mindestens ein Element.
+   * @returns {string[]} Immer mindestens ein Element, noch maskiert.
    */
-  function splitEdifact(value, separator, releaseChar) {
+  function splitKeepingRelease(value, separator, releaseChar) {
     const parts = [];
     let current = '';
     let released = false;
@@ -124,6 +126,7 @@
         current += char;
         released = false;
       } else if (char === releaseChar) {
+        current += char;
         released = true;
       } else if (char === separator) {
         parts.push(current);
@@ -133,9 +136,52 @@
       }
     }
 
-    if (released) current += releaseChar;
     parts.push(current);
     return parts;
+  }
+
+  /**
+   * Hebt die Maskierung in `value` auf.
+   *
+   * Steht das Release-Zeichen am Ende der Eingabe, gibt es kein Folgezeichen
+   * mehr, das es schuetzen koennte -- dann wird es als Nutzdatenzeichen
+   * uebernommen.
+   *
+   * @param {string} value
+   * @param {string} releaseChar
+   * @returns {string}
+   */
+  function unescapeEdifact(value, releaseChar) {
+    let result = '';
+    let released = false;
+
+    for (const char of value) {
+      if (released) {
+        result += char;
+        released = false;
+      } else if (char === releaseChar) {
+        released = true;
+      } else {
+        result += char;
+      }
+    }
+
+    if (released) result += releaseChar;
+    return result;
+  }
+
+  /**
+   * Zerlegt `value` am `separator` und hebt die Maskierung auf.
+   *
+   * @param {string} value
+   * @param {string} separator
+   * @param {string} releaseChar
+   * @returns {string[]} Immer mindestens ein Element.
+   */
+  function splitEdifact(value, separator, releaseChar) {
+    return splitKeepingRelease(value, separator, releaseChar).map((part) =>
+      unescapeEdifact(part, releaseChar),
+    );
   }
 
   /**
@@ -174,21 +220,37 @@
     // wuerde er am Elementtrenner zerfallen und ein Segment mit dem
     // unbrauchbaren Tag "UNA:" erzeugen.
     if (hasUnaHeader(source)) {
+      // Die UNA-Zeichen sind Vorgaben, keine Nutzdaten. Sie werden einzeln
+      // ausgewiesen und nicht am Komponententrenner zerlegt -- der
+      // Komponententrenner steht dort selbst als Wert.
+      const unaElements = [...source.slice(3, UNA_LENGTH)];
       current.push({
         tag: 'UNA',
-        elements: [...source.slice(3, UNA_LENGTH)],
+        elements: unaElements,
+        components: unaElements.map((value) => [value]),
         raw: source.slice(0, UNA_LENGTH),
       });
     }
 
     const body = hasUnaHeader(source) ? source.slice(UNA_LENGTH) : source;
-    const rawSegments = splitEdifact(body, delimiters.segment, delimiters.release)
+    // Bis zur Element- und Komponentenstufe bleibt die Maskierung erhalten,
+    // sonst gingen maskierte Trennzeichen auf der naechsten Stufe verloren.
+    const rawSegments = splitKeepingRelease(body, delimiters.segment, delimiters.release)
       .map((segment) => segment.trim())
       .filter(Boolean);
 
     for (const raw of rawSegments) {
-      const elements = splitEdifact(raw, delimiters.element, delimiters.release);
-      const segment = { tag: elements[0], elements: elements.slice(1), raw };
+      const rawElements = splitKeepingRelease(raw, delimiters.element, delimiters.release);
+      const segment = {
+        tag: unescapeEdifact(rawElements[0], delimiters.release),
+        elements: rawElements
+          .slice(1)
+          .map((element) => unescapeEdifact(element, delimiters.release)),
+        components: rawElements
+          .slice(1)
+          .map((element) => splitEdifact(element, delimiters.component, delimiters.release)),
+        raw,
+      };
 
       // Der UNA-Header allein bildet keine Gruppe -- folgt direkt ein UNH,
       // gehoert er zu dieser Nachricht.
@@ -294,6 +356,8 @@
   ns.hasUnaHeader = hasUnaHeader;
   ns.readDelimiters = readDelimiters;
   ns.splitEdifact = splitEdifact;
+  ns.splitKeepingRelease = splitKeepingRelease;
+  ns.unescapeEdifact = unescapeEdifact;
   ns.parseEdifact = parseEdifact;
   ns.validateEdifactSyntax = validateEdifactSyntax;
 })((globalThis.EdifactExplorer ??= {}));
