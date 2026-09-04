@@ -361,10 +361,18 @@
     const index = Math.min(Math.max(0, activeMessage), messages.length - 1);
     const message = messages[index];
 
+    // Die Formatversion steht nur da, wenn UNH DE 0057 sie nennt. Fehlt sie,
+    // entfaellt der Abschnitt -- ein Platzhalter wuerde eine Version suggerieren.
+    const heading = [
+      message.type,
+      message.header?.formatVersion ? `Formatversion ${message.header.formatVersion}` : null,
+      `${ns.formatCount(message.segments.length)} Segmente`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
     const section = ns.el('div', { class: 'section' }, [
-      ns.el('h3', {
-        text: `${message.type} · ${ns.formatCount(message.segments.length)} Segmente`,
-      }),
+      ns.el('h3', { text: heading }),
       findingList(findingsFor(record, index), 'Befunde dieser Nachricht'),
       ...message.segments.map((segment) => segmentRow(segment, query)),
     ]);

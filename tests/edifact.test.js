@@ -16,6 +16,7 @@ const {
   parseEdifact,
   readDelimiters,
   readInterchangeHeader,
+  readMessageHeader,
   segmentLabel,
   splitEdifact,
   splitKeepingRelease,
@@ -506,5 +507,81 @@ describe('collectFindings', () => {
       ),
       [],
     );
+  });
+});
+
+describe('readMessageHeader', () => {
+  const header = (payload) => readMessageHeader(parseEdifact(payload)[0].segments);
+
+  it('zerlegt einen vollstaendigen Nachrichtenbezeichner', () => {
+    assert.deepEqual(header("UNH+DEMO001+UTILMD:D:11A:UN:5.1e'UNT+2+DEMO001'"), {
+      reference: 'DEMO001',
+      type: 'UTILMD',
+      version: 'D',
+      release: '11A',
+      agency: 'UN',
+      formatVersion: '5.1e',
+    });
+  });
+
+  it('laesst die Formatversion leer, wenn DE 0057 fehlt', () => {
+    const result = header("UNH+1+UTILMD:D:11A:UN'");
+
+    assert.equal(result.type, 'UTILMD');
+    assert.equal(result.agency, 'UN');
+    assert.equal(result.formatVersion, '');
+  });
+
+  it('verarbeitet einen verkuerzten Bezeichner', () => {
+    assert.deepEqual(header("UNH+1+UTILMD'"), {
+      reference: '1',
+      type: 'UTILMD',
+      version: '',
+      release: '',
+      agency: '',
+      formatVersion: '',
+    });
+  });
+
+  it('verarbeitet ein UNH ohne Bezeichner', () => {
+    const result = header("UNH+1'");
+
+    assert.equal(result.reference, '1');
+    assert.equal(result.type, '');
+    assert.equal(result.formatVersion, '');
+  });
+
+  it('liefert ohne UNH null', () => {
+    assert.equal(readMessageHeader(parseEdifact("UNZ+1+REF'")[0].segments), null);
+  });
+});
+
+describe('parseEdifact: Nachrichtenkopf je Gruppe', () => {
+  it('haengt den ausgewerteten Kopf an die Gruppe', () => {
+    const [group] = parseEdifact("UNH+1+UTILMD:D:11A:UN:5.1e'UNT+2+1'");
+
+    assert.equal(group.type, 'UTILMD');
+    assert.equal(group.header.formatVersion, '5.1e');
+  });
+
+  it('fuehrt je Nachricht einer Sammelnachricht einen eigenen Kopf', () => {
+    const groups = parseEdifact(
+      "UNB+UNOC:3+1+2+260801:0815+REF'" +
+        "UNH+1+UTILMD:D:11A:UN:5.1e'UNT+2+1'" +
+        "UNH+2+UTILMD:D:11A:UN:4.4'UNT+2+2'" +
+        "UNZ+2+REF'",
+    );
+
+    assert.deepEqual(
+      groups.map((group) => group.header?.formatVersion ?? null),
+      [null, '5.1e', '4.4', null],
+    );
+  });
+
+  it('laesst Huellsegmentgruppen ohne Kopf und behaelt den Rueckfalltyp', () => {
+    const [group] = parseEdifact("UNB+UNOC:3+1+2+260801:0815+REF'UNH+1+UTILMD:D:11A:UN'UNT+2+1'");
+
+    assert.equal(group.header, null);
+    assert.equal(group.type, UNKNOWN_MESSAGE_TYPE);
   });
 });

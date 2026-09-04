@@ -209,17 +209,41 @@
   }
 
   /**
+   * Liest den Nachrichtenkopf UNH einer Segmentgruppe aus.
+   *
+   * Der Nachrichtenbezeichner S009 steht an Elementposition 1 und fuehrt
+   * seine Angaben in Komponenten:
+   *
+   *     0  0065  Nachrichtentyp                z. B. UTILMD
+   *     1  0052  Version                       z. B. D
+   *     2  0054  Release                       z. B. 11A
+   *     3  0051  Verwaltende Organisation      z. B. UN
+   *     4  0057  Anwendungsspezifische Kennung z. B. 5.1e
+   *
+   * DE 0057 ist die Formatversion. Bei jeder Formatumstellung ist sie die
+   * erste Frage an eine Nachricht, und genau sie ist bisher verworfen worden.
+   *
+   * @param {object[]} segments
+   * @returns {object|null} `null`, wenn die Gruppe keinen UNH-Kopf hat.
+   */
+  function readMessageHeader(segments) {
+    const header = segments.find((segment) => segment.tag === 'UNH');
+    if (!header) return null;
+
+    const [type = '', version = '', release = '', agency = '', formatVersion = ''] =
+      header.components[1] ?? [];
+
+    return { reference: header.elements[0] ?? '', type, version, release, agency, formatVersion };
+  }
+
+  /**
    * Ermittelt den Nachrichtentyp einer Segmentgruppe aus ihrem UNH-Kopf.
    *
    * @param {object[]} segments
-   * @param {string} componentSeparator
    * @returns {string}
    */
-  function messageType(segments, componentSeparator) {
-    const header = segments.find((segment) => segment.tag === 'UNH');
-    const identifier = header?.elements[1];
-    if (!identifier) return UNKNOWN_MESSAGE_TYPE;
-    return identifier.split(componentSeparator)[0] || UNKNOWN_MESSAGE_TYPE;
+  function messageType(segments) {
+    return readMessageHeader(segments)?.type || UNKNOWN_MESSAGE_TYPE;
   }
 
   /**
@@ -295,7 +319,8 @@
 
     return messages.map((segments) => ({
       segments,
-      type: messageType(segments, delimiters.component),
+      type: messageType(segments),
+      header: readMessageHeader(segments),
     }));
   }
 
@@ -566,4 +591,5 @@
   ns.checkCharacterSet = checkCharacterSet;
   ns.collectFindings = collectFindings;
   ns.readInterchangeHeader = readInterchangeHeader;
+  ns.readMessageHeader = readMessageHeader;
 })((globalThis.EdifactExplorer ??= {}));
