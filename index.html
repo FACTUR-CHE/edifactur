@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light" />
     <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
          schlaegt an, wenn die beiden auseinanderlaufen. -->
-    <meta name="application-version" content="1.0.6" />
+    <meta name="application-version" content="1.0.7" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -151,27 +151,30 @@
             </select>
           </div>
 
-          <div class="filters filters-range">
-            <p class="field">
-              <label class="field-label" for="rangePreset">Übertragungszeitraum</label>
-              <select id="rangePreset">
-                <option value="">Alle Zeiträume</option>
-                <option value="24h">Letzte 24 Stunden</option>
-                <option value="7d">Letzte 7 Tage</option>
-                <option value="30d">Letzte 30 Tage</option>
-              </select>
-            </p>
-            <p class="field">
-              <label class="field-label" for="rangeFrom">Von</label>
-              <input id="rangeFrom" type="date" />
-            </p>
-            <p class="field">
-              <label class="field-label" for="rangeTo">Bis</label>
-              <input id="rangeTo" type="date" />
-            </p>
-            <p class="range-zone">Grenzen in Ortszeit, jeweils einschließlich</p>
-            <p id="rangeHint" class="range-hint" hidden></p>
-          </div>
+          <details id="rangePanel" class="range-panel">
+            <summary id="rangeSummary" class="range-summary">Übertragungszeitraum</summary>
+            <div class="filters filters-range">
+              <p class="field">
+                <label class="field-label" for="rangePreset">Schnellauswahl</label>
+                <select id="rangePreset">
+                  <option value="">Alle Zeiträume</option>
+                  <option value="24h">Letzte 24 Stunden</option>
+                  <option value="7d">Letzte 7 Tage</option>
+                  <option value="30d">Letzte 30 Tage</option>
+                </select>
+              </p>
+              <p class="field">
+                <label class="field-label" for="rangeFrom">Von</label>
+                <input id="rangeFrom" type="date" />
+              </p>
+              <p class="field">
+                <label class="field-label" for="rangeTo">Bis</label>
+                <input id="rangeTo" type="date" />
+              </p>
+              <p class="range-zone">Grenzen in Ortszeit, jeweils einschließlich</p>
+              <p id="rangeHint" class="range-hint" hidden></p>
+            </div>
+          </details>
         </div>
 
         <div class="workspace">

@@ -70,6 +70,20 @@
   }
 
   /**
+   * Formatiert einen Zeitpunkt als reines Datum, ohne Uhrzeit.
+   *
+   * Fuer Stellen, an denen die Spanne knapp benannt werden muss -- eine
+   * eingeklappte Zeile traegt kein "00:00:00 bis 23:59:59".
+   *
+   * @param {number} value Zeitpunkt in Millisekunden.
+   * @param {string} [locale]
+   * @returns {string}
+   */
+  function formatDay(value, locale = LOCALE) {
+    return new Date(value).toLocaleDateString(locale);
+  }
+
+  /**
    * Formatiert eine Anzahl mit Tausendertrennern.
    *
    * @param {number} value
@@ -454,6 +468,7 @@
   ns.EMPTY_ELEMENT = EMPTY_ELEMENT;
   ns.parseTimestamp = parseTimestamp;
   ns.formatDate = formatDate;
+  ns.formatDay = formatDay;
   ns.formatCount = formatCount;
   ns.splitByQuery = splitByQuery;
   ns.joinSegments = joinSegments;

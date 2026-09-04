@@ -527,11 +527,70 @@ pre {
 
 /* -- Zeitraumfilter ------------------------------------------------------- */
 
+/* Der Zeitraum ist der einzige Filter mit vier Bedienelementen und der
+   seltenste. Eingeklappt gibt er die Zeile frei, ohne die haeufigen Filter
+   zu verdraengen. */
+.range-panel {
+  border-block-start: 1px solid var(--line-soft);
+  padding-block-start: 10px;
+}
+
+.range-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 4px;
+  color: var(--brand);
+  font: 700 12px/1.2 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  /* `display: inline-flex` nimmt die Standardmarkierung mit; sie wird unten
+     durch einen eigenen Winkel ersetzt, damit die Zeile ein Aufklappzeichen
+     behaelt. */
+  list-style: none;
+}
+
+.range-summary::-webkit-details-marker {
+  display: none;
+}
+
+.range-summary::before {
+  content: '';
+  inline-size: 6px;
+  block-size: 6px;
+  border-block-end: 2px solid currentcolor;
+  border-inline-end: 2px solid currentcolor;
+
+  /* Zugeklappt nach rechts, aufgeklappt nach unten. */
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.range-panel[open] .range-summary::before {
+  transform: rotate(45deg);
+}
+
+/* Ein gesetzter Zeitraum bleibt eingeklappt sichtbar: die Kopfzeile nennt
+   ihn und traegt einen Punkt. Sonst waere ein wirkender Filter unsichtbar. */
+.range-panel[data-active='true'] .range-summary::after {
+  content: '';
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 /* Die Beschriftungen sitzen ueber den Feldern und machen die Zeile hoeher als
    die obere. `end` haelt die Eingabefelder beider Zeilen trotzdem auf einer
    Linie. */
 .filters-range {
   align-items: end;
+
+  /* Nur im aufgeklappten Zustand sichtbar -- eingeklappt zeichnet `details`
+     den Inhalt gar nicht. */
+  margin-block-start: 10px;
 }
 
 .field {

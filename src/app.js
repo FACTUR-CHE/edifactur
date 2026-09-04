@@ -68,6 +68,8 @@
     'resultInfo',
     'clearFilters',
     'search',
+    'rangePanel',
+    'rangeSummary',
     'rangePreset',
     'rangeFrom',
     'rangeTo',
@@ -241,7 +243,29 @@
   }
 
   /**
-   * Beschreibt den gesetzten Zeitraum unter den Filtern.
+   * Benennt den gesetzten Zeitraum kurz, fuer die Kopfzeile des Panels.
+   *
+   * Der Zeitraum ist der einzige Filter, der sich einklappen laesst. Was
+   * eingeklappt ist, wirkt trotzdem -- die Kopfzeile muss ihn deshalb tragen,
+   * sonst suchte man die fehlenden Treffer hinter einer zugeklappten Zeile.
+   *
+   * @param {{start: number, end: number}|null} range
+   * @returns {string} Leer, wenn kein Zeitraum gesetzt ist.
+   */
+  function describeRange(range) {
+    if (!range) return '';
+
+    const preset = ns.RANGE_PRESETS[dom.rangePreset.value];
+    if (preset) return preset.label;
+
+    if (range.start > range.end) return 'ungültige Spanne';
+    if (!Number.isFinite(range.start)) return `bis ${ns.formatDay(range.end)}`;
+    if (!Number.isFinite(range.end)) return `ab ${ns.formatDay(range.start)}`;
+    return `${ns.formatDay(range.start)} bis ${ns.formatDay(range.end)}`;
+  }
+
+  /**
+   * Beschreibt den gesetzten Zeitraum in der Kopfzeile und unter den Feldern.
    *
    * Zwei Dinge muessen sichtbar sein, damit die Trefferzahl nachvollziehbar
    * bleibt: dass nach Ortszeit gefiltert wird, und wie viele Datensaetze
@@ -249,6 +273,13 @@
    */
   function updateRangeHint() {
     const range = ns.resolveRange(readRange());
+    const summary = describeRange(range);
+
+    dom.rangeSummary.textContent = summary
+      ? `Übertragungszeitraum: ${summary}`
+      : 'Übertragungszeitraum';
+    dom.rangePanel.dataset.active = String(Boolean(summary));
+
     if (!range) {
       dom.rangeHint.hidden = true;
       dom.rangeHint.textContent = '';
