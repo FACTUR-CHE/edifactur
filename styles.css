@@ -906,6 +906,22 @@ pre {
   background: none;
 }
 
+/* Der Klartext tritt zum Rohcode hinzu, er ersetzt ihn nicht -- der Code
+   bleibt sichtbar und kopierbar. */
+.code-meaning {
+  margin-inline-start: 8px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* Ein nicht hinterlegter Code ist nicht ungueltig, nur unbelegt. Die
+   Darstellung muss zurueckhaltend bleiben und darf nicht wie ein Fehler
+   aussehen. */
+.code-unlisted {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .segment-hint {
   margin: 0 0 10px;
   color: var(--muted);

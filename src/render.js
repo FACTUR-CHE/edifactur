@@ -424,6 +424,35 @@
    * @param {string} query
    * @returns {HTMLElement}
    */
+  /** Hinweis, wenn ein Code nicht in der hinterlegten Codeliste steht. */
+  const UNLISTED_CODE_TITLE =
+    'Der Code steht nicht in der hinterlegten Codeliste. Das heißt nicht, dass er ungültig ist — ' +
+    'die Tabellen sind kuratierte Teilmengen, und die EDI@Energy-eigenen Codes sind noch nicht erfasst.';
+
+  /**
+   * Loest einen Codewert in Klartext auf.
+   *
+   * Der Rohwert bleibt daneben stehen und kopierbar -- der Klartext tritt
+   * hinzu, er ersetzt nichts.
+   *
+   * @param {string|undefined} element Datenelement-Nummer.
+   * @param {string} value
+   * @returns {HTMLElement|null} Null, wenn keine Codeliste vorliegt: dann
+   *   gibt es keine Aussage zu treffen.
+   */
+  function codeText(element, value) {
+    const meaning = ns.codeMeaning(element, value);
+    if (!meaning) return null;
+
+    return meaning.name
+      ? ns.el('span', { class: 'code-meaning', text: meaning.name })
+      : ns.el('span', {
+          class: 'code-meaning code-unlisted',
+          title: UNLISTED_CODE_TITLE,
+          text: 'nicht hinterlegt',
+        });
+  }
+
   function componentRow(tag, element, component, value, split, query) {
     const definition = ns.dataElement(tag, element, component);
     const position = split ? `${element + 1}.${component + 1}` : `${element + 1}`;
@@ -450,6 +479,7 @@
                 },
                 ns.highlighted(value, query),
               ),
+              codeText(definition?.code, value),
             ]
           : [ns.el('span', { class: 'value value-empty', text: ns.EMPTY_ELEMENT })],
       ),
