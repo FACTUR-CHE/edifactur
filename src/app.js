@@ -93,6 +93,8 @@
     /** @type {string|null} */
     selectedId: null,
     query: '',
+    /** @type {string[]} Begriffe fuer die Hervorhebung, aus der Eingabe abgeleitet. */
+    highlight: [],
     /** @type {'structured'|'raw'} */
     activeTab: 'structured',
     activeMessage: 0,
@@ -122,15 +124,29 @@
    * @param {string} message
    * @param {'info'|'warning'|'error'} variant
    */
-  function showNotice(message, variant) {
+  function showNotice(message, variant, source = 'app') {
     dom.notice.textContent = message;
     dom.notice.dataset.variant = variant;
+    dom.notice.dataset.source = source;
     dom.notice.hidden = false;
   }
 
   function hideNotice() {
     dom.notice.hidden = true;
     dom.notice.textContent = '';
+    delete dom.notice.dataset.source;
+  }
+
+  /**
+   * Nimmt nur eine Meldung derselben Herkunft zurueck.
+   *
+   * Ohne diese Schranke wuerde jeder Tastendruck im Suchfeld die Warnung
+   * ueber uebersprungene Datensaetze aus dem Datei-Import loeschen.
+   *
+   * @param {string} source
+   */
+  function hideNoticeFrom(source) {
+    if (dom.notice.dataset.source === source) hideNotice();
   }
 
   function resetManualInput() {
@@ -168,6 +184,35 @@
 
     dom.inputFormatHelp.textContent = format.help;
     dom.messageInput.placeholder = format.placeholder;
+  }
+
+  /**
+   * Uebernimmt eine Sucheingabe.
+   *
+   * Ein unbekanntes Suchfeld wird gemeldet und die Bedingung fallen gelassen.
+   * Sie stillschweigend als Volltext zu suchen waere schlimmer: ein
+   * Tippfehler ergaebe dann ein Ergebnis, das wie eine Antwort aussieht.
+   *
+   * @param {string} value
+   */
+  function updateQuery(value) {
+    state.query = value;
+    state.highlight = ns.highlightTerms(value);
+
+    const { unknown } = ns.parseQuery(value);
+    if (unknown.length === 0) {
+      hideNoticeFrom('search');
+      return;
+    }
+
+    const available = Object.keys(ns.SEARCH_FIELDS)
+      .map((key) => `${key}:`)
+      .join(' ');
+    showNotice(
+      `Unbekanntes Suchfeld ${unknown.map((entry) => `${entry}:`).join(', ')} — die Bedingung wurde nicht angewendet. Verfügbar: ${available}`,
+      'warning',
+      'search',
+    );
   }
 
   /**
@@ -223,7 +268,7 @@
     const record = selectedRecord();
     ns.renderDetail(dom.detail, {
       record,
-      query: state.query,
+      query: state.highlight,
       activeTab: state.activeTab,
       activeMessage: state.activeMessage,
       chain: referenceChain(record),
@@ -353,7 +398,7 @@
     ns.renderList(dom.recordList, {
       records: state.filtered,
       selectedId: state.selectedId,
-      query: state.query,
+      query: state.highlight,
       page: state.page,
       pageSize: PAGE_SIZE,
     });
@@ -396,7 +441,7 @@
   function resetControls() {
     dom.search.value = '';
     for (const { id } of FILTERS) dom[id].value = '';
-    state.query = '';
+    updateQuery('');
   }
 
   /**
@@ -532,7 +577,7 @@
   dom.search.addEventListener(
     'input',
     debounce(() => {
-      state.query = dom.search.value;
+      updateQuery(dom.search.value);
       state.activeMessage = 0;
       applyFilters({ resetPage: true });
     }, SEARCH_DEBOUNCE_MS),

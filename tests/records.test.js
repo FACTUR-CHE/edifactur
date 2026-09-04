@@ -9,6 +9,7 @@ import '../src/records.js';
 const {
   buildReferenceIndex,
   clampPage,
+  highlightTerms,
   createRecordFromEdifact,
   extractOptionValues,
   filterRecords,
@@ -16,6 +17,7 @@ const {
   normalizeRecord,
   normalizeRecords,
   pageCount,
+  parseQuery,
 } = globalThis.EdifactExplorer;
 
 /** @returns {object} Rohdatensatz wie in einer Exportdatei. */
@@ -278,5 +280,175 @@ describe('buildReferenceIndex', () => {
 
     assert.equal(index.targets.size, 0);
     assert.equal(index.sources.size, 0);
+  });
+});
+
+describe('parseQuery', () => {
+  it('liest freien Text ohne Praefix als Volltext', () => {
+    assert.deepEqual(parseQuery('Meier GmbH'), {
+      text: 'Meier GmbH',
+      terms: [],
+      unknown: [],
+    });
+  });
+
+  it('erkennt eine Feldbedingung', () => {
+    assert.deepEqual(parseQuery('loc:DEMO-MALO-0001'), {
+      text: '',
+      terms: [{ field: 'loc', value: 'DEMO-MALO-0001' }],
+      unknown: [],
+    });
+  });
+
+  it('verknuepft mehrere Bedingungen und behaelt freien Text', () => {
+    const parsed = parseQuery('seg:QTY format:MSCONS Zaehlerstand');
+
+    assert.equal(parsed.text, 'Zaehlerstand');
+    assert.deepEqual(parsed.terms, [
+      { field: 'seg', value: 'QTY' },
+      { field: 'format', value: 'MSCONS' },
+    ]);
+  });
+
+  it('ignoriert Gross- und Kleinschreibung im Praefix', () => {
+    assert.deepEqual(parseQuery('LOC:x').terms, [{ field: 'loc', value: 'x' }]);
+    assert.deepEqual(parseQuery('Seg:QTY').terms, [{ field: 'seg', value: 'QTY' }]);
+  });
+
+  it('meldet ein unbekanntes Praefix statt es als Volltext zu suchen', () => {
+    const parsed = parseQuery('xyz:1');
+
+    assert.deepEqual(parsed.unknown, ['xyz']);
+    assert.deepEqual(parsed.terms, []);
+    assert.equal(parsed.text, '');
+  });
+
+  it('liest einen Zeitstempel nicht als Feldbedingung', () => {
+    // Ohne die Buchstabenschranke waere "08" hier ein Praefix.
+    const parsed = parseQuery('2026-08-01T08:15');
+
+    assert.equal(parsed.text, '2026-08-01T08:15');
+    assert.deepEqual(parsed.terms, []);
+    assert.deepEqual(parsed.unknown, []);
+  });
+
+  it('liest einen EDIFACT-Wert mit Komponententrenner nicht als Feldbedingung', () => {
+    const parsed = parseQuery('1-1:1.8.0');
+
+    assert.equal(parsed.text, '1-1:1.8.0');
+    assert.deepEqual(parsed.terms, []);
+  });
+
+  it('behaelt einen Doppelpunkt im Wert einer Bedingung', () => {
+    assert.deepEqual(parseQuery('rff:ACE:DEMO-001').terms, [
+      { field: 'rff', value: 'ACE:DEMO-001' },
+    ]);
+  });
+
+  it('verwirft ein Praefix ohne Wert', () => {
+    const parsed = parseQuery('loc:');
+
+    assert.deepEqual(parsed.terms, []);
+    assert.deepEqual(parsed.unknown, []);
+  });
+
+  it('haelt einen Wert mit Leerzeichen in Anfuehrungszeichen zusammen', () => {
+    assert.deepEqual(parseQuery('nad:"Demolieferant GmbH"').terms, [
+      { field: 'nad', value: 'Demolieferant GmbH' },
+    ]);
+  });
+
+  it('verarbeitet leere und unbrauchbare Eingaben', () => {
+    for (const input of ['', '   ', null, undefined]) {
+      assert.deepEqual(parseQuery(input), { text: '', terms: [], unknown: [] });
+    }
+  });
+});
+
+describe('highlightTerms', () => {
+  it('liefert freien Text und Bedingungswerte', () => {
+    assert.deepEqual(highlightTerms('loc:DEMO-1 Meier'), ['Meier', 'DEMO-1']);
+  });
+
+  it('liefert fuer eine leere Eingabe eine leere Liste', () => {
+    assert.deepEqual(highlightTerms(''), []);
+  });
+
+  it('nimmt ein unbekanntes Praefix nicht in die Hervorhebung auf', () => {
+    assert.deepEqual(highlightTerms('xyz:1'), []);
+  });
+});
+
+describe('filterRecords mit Feldbedingungen', () => {
+  const build = (id, payload, source = {}) =>
+    normalizeRecord({ ID: id, payload: { payload }, ...source }, id);
+
+  const records = [
+    build('a', "UNH+1+MSCONS:D:04B:UN'LOC+172+MALO-1'QTY+220:42'UNT+4+1'", {
+      messageFormat: 'MSCONS',
+      communicationPartnerID: '9900000000005',
+    }),
+    build('b', "UNH+1+UTILMD:D:11A:UN'LOC+172+MALO-2'NAD+MS+9900000000009::293'UNT+4+1'", {
+      messageFormat: 'UTILMD',
+      messageID: 'MSG-B',
+    }),
+    build('c', "UNH+1+APERAK:D:07B:UN'RFF+ACE:MSG-B'ERC+Z29'UNT+4+1'", {
+      messageFormat: 'APERAK',
+    }),
+  ];
+
+  const ids = (query) => filterRecords(records, { query }).map((record) => record.id);
+
+  it('findet ueber den Segmenttyp', () => {
+    assert.deepEqual(ids('seg:QTY'), ['a']);
+    assert.deepEqual(ids('seg:LOC'), ['a', 'b']);
+    assert.deepEqual(ids('seg:ERC'), ['c']);
+  });
+
+  it('findet einen Wert nur im genannten Segment', () => {
+    // 9900000000009 steht im NAD von b. Ueber loc: darf es nicht treffen.
+    assert.deepEqual(ids('nad:9900000000009'), ['b']);
+    assert.deepEqual(ids('loc:9900000000009'), []);
+  });
+
+  it('findet ueber Metadatenfelder', () => {
+    assert.deepEqual(ids('format:UTILMD'), ['b']);
+    assert.deepEqual(ids('partner:9900000000005'), ['a']);
+    assert.deepEqual(ids('msgid:MSG-B'), ['b']);
+  });
+
+  it('verknuepft Bedingungen mit Und', () => {
+    assert.deepEqual(ids('seg:LOC format:UTILMD'), ['b']);
+    assert.deepEqual(ids('seg:LOC format:APERAK'), []);
+  });
+
+  it('verknuepft Bedingung und Volltext mit Und', () => {
+    assert.deepEqual(ids('seg:LOC MALO-2'), ['b']);
+    assert.deepEqual(ids('seg:ERC MALO-2'), []);
+  });
+
+  it('laesst eine unbekannte Bedingung wirkungslos', () => {
+    // Gemeldet wird sie in der Oberflaeche; gefiltert wird nicht danach.
+    assert.deepEqual(ids('xyz:1'), ['a', 'b', 'c']);
+  });
+
+  it('ignoriert Gross- und Kleinschreibung im Wert', () => {
+    assert.deepEqual(ids('seg:qty'), ['a']);
+    assert.deepEqual(ids('loc:malo-1'), ['a']);
+  });
+
+  it('bleibt bei 20.000 Datensaetzen praxistauglich', () => {
+    const many = Array.from({ length: 20000 }, (unused, index) =>
+      build(`r${index}`, `UNH+1+MSCONS:D:04B:UN'LOC+172+MALO-${index}'QTY+220:42'UNT+4+1'`, {
+        messageFormat: 'MSCONS',
+      }),
+    );
+
+    const started = performance.now();
+    const hits = filterRecords(many, { query: 'seg:QTY loc:MALO-19999' });
+    const elapsed = performance.now() - started;
+
+    assert.equal(hits.length, 1);
+    assert.ok(elapsed < 1000, `Filtern dauerte ${Math.round(elapsed)} ms`);
   });
 });

@@ -84,20 +84,39 @@
     const value = String(text ?? '');
     if (value.length === 0) return [];
 
-    const needle = String(query ?? '').trim();
-    if (needle.length === 0) return [{ text: value, match: false }];
+    // Mehrere Begriffe, weil eine feldbezogene Suche mehrere Bedingungen
+    // enthaelt: `loc:DE0005 Meier` soll beide Werte hervorheben.
+    const needles = (Array.isArray(query) ? query : [query])
+      .map((entry) => String(entry ?? '').trim())
+      .filter(Boolean);
+    if (needles.length === 0) return [{ text: value, match: false }];
 
     const haystack = value.toLowerCase();
-    const lowerNeedle = needle.toLowerCase();
+    const lowered = needles.map((needle) => needle.toLowerCase());
     const parts = [];
     let index = 0;
 
     for (;;) {
-      const found = haystack.indexOf(lowerNeedle, index);
+      // Der frueheste Treffer gewinnt, bei gleicher Position der laengere.
+      // Sonst koennte ein kurzer Begriff einen ueberlappenden langen
+      // zerschneiden und die Hervorhebung waere von der Reihenfolge der
+      // Begriffe abhaengig.
+      let found = -1;
+      let length = 0;
+
+      for (const needle of lowered) {
+        const at = haystack.indexOf(needle, index);
+        if (at === -1) continue;
+        if (found === -1 || at < found || (at === found && needle.length > length)) {
+          found = at;
+          length = needle.length;
+        }
+      }
+
       if (found === -1) break;
       if (found > index) parts.push({ text: value.slice(index, found), match: false });
-      parts.push({ text: value.slice(found, found + needle.length), match: true });
-      index = found + needle.length;
+      parts.push({ text: value.slice(found, found + length), match: true });
+      index = found + length;
     }
 
     if (index < value.length) parts.push({ text: value.slice(index), match: false });

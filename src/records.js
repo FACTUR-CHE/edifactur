@@ -30,6 +30,44 @@
   ]);
 
   /**
+   * Felder der feldbezogenen Suche.
+   *
+   * Der Volltextindex findet eine 33-stellige Zaehlpunktbezeichnung, laesst
+   * sich aber nicht sagen, **wo** sie stehen soll: `9900000000001` trifft
+   * Absender, Empfaenger und jedes NAD gleichermassen.
+   *
+   * `meta` sucht in Metadatenfeldern, `segment` in den Werten eines
+   * Segmenttyps, `tags` in der Liste der vorkommenden Segment-Tags. Ein neues
+   * Feld braucht genau einen Eintrag hier.
+   */
+  const SEARCH_FIELDS = Object.freeze({
+    format: { label: 'Nachrichtenformat', meta: ['messageFormat'] },
+    partner: { label: 'Marktpartner', meta: ['communicationPartnerID', 'ownPartnerID'] },
+    msgid: { label: 'Nachrichtenkennung', meta: ['messageID', 'ID'] },
+    seg: { label: 'Segment', tags: true },
+    loc: { label: 'LOC-Segment', segment: 'LOC' },
+    nad: { label: 'NAD-Segment', segment: 'NAD' },
+    rff: { label: 'RFF-Segment', segment: 'RFF' },
+    dtm: { label: 'DTM-Segment', segment: 'DTM' },
+  });
+
+  /** Segmenttypen, fuer die ein eigener Index gebaut wird. */
+  const INDEXED_SEGMENTS = Object.freeze(
+    Object.values(SEARCH_FIELDS)
+      .map((field) => field.segment)
+      .filter(Boolean),
+  );
+
+  /**
+   * Ein Praefix-Versuch: zwei bis zehn Buchstaben, dann ein Doppelpunkt.
+   *
+   * Die Buchstabenschranke ist wesentlich. Ohne sie waere in
+   * `2026-08-01T08:15` das `08` ein Praefix, und jede Uhrzeit und jedes
+   * EDIFACT-Element mit Komponententrenner wuerde als Feldsuche gelesen.
+   */
+  const PREFIX = /^([a-zA-Z]{2,10}):(.*)$/;
+
+  /**
    * @typedef {object} Record
    * @property {string} id      Stabile, eindeutige Kennung innerhalb der Ladung.
    * @property {object} source  Unveraenderter Datensatz aus der Datei.
@@ -57,6 +95,112 @@
       .filter((value) => typeof value === 'string' || typeof value === 'number')
       .join(' ');
     return `${metadata} ${payload}`.toLowerCase();
+  }
+
+  /**
+   * Baut die Indizes fuer die feldbezogene Suche.
+   *
+   * Nur die in SEARCH_FIELDS genannten Segmenttypen bekommen einen eigenen
+   * Wertindex. Alles zu indizieren wuerde die Nutzlast ein zweites Mal im
+   * Speicher halten; die Tag-Liste dagegen ist klein und deckt `seg:` ab.
+   *
+   * @param {object[]} messages Ergebnis von parseEdifact.
+   * @returns {{tags: string, values: object}} Alles kleingeschrieben.
+   */
+  function buildSegmentIndex(messages) {
+    const tags = new Set();
+    const values = {};
+    for (const tag of INDEXED_SEGMENTS) values[tag] = [];
+
+    for (const message of messages) {
+      for (const segment of message.segments) {
+        tags.add(segment.tag);
+        if (values[segment.tag]) values[segment.tag].push(segment.elements.join(' '));
+      }
+    }
+
+    return {
+      tags: [...tags].join(' ').toLowerCase(),
+      values: Object.fromEntries(
+        Object.entries(values).map(([tag, parts]) => [tag, parts.join(' ').toLowerCase()]),
+      ),
+    };
+  }
+
+  /**
+   * Zerlegt eine Sucheingabe in Feldbedingungen und freien Text.
+   *
+   * @param {unknown} query
+   * @returns {{text: string, terms: object[], unknown: string[]}}
+   *   `terms` sind die erkannten Bedingungen, `unknown` die versuchten
+   *   Praefixe, die es nicht gibt. Sie werden **nicht** stillschweigend als
+   *   Volltext gesucht -- ein Tippfehler wuerde sonst zu einem Ergebnis
+   *   fuehren, das wie eine Antwort aussieht.
+   */
+  function parseQuery(query) {
+    const text = [];
+    const terms = [];
+    const unknown = [];
+
+    // Anfuehrungszeichen halten einen Wert mit Leerzeichen zusammen:
+    // nad:"Demolieferant GmbH".
+    const tokens = String(query ?? '').match(/[^\s"]*"[^"]*"?[^\s"]*|[^\s]+/g) ?? [];
+
+    for (const token of tokens) {
+      const found = PREFIX.exec(token);
+      if (!found) {
+        text.push(token.replaceAll('"', ''));
+        continue;
+      }
+
+      const [, prefix, rest] = found;
+      const key = prefix.toLowerCase();
+      const value = rest.replaceAll('"', '').trim();
+
+      if (!Object.prototype.hasOwnProperty.call(SEARCH_FIELDS, key)) {
+        unknown.push(prefix);
+        continue;
+      }
+
+      // `loc:` ohne Wert ist keine Bedingung, sondern eine halbe Eingabe.
+      if (value.length > 0) terms.push({ field: key, value });
+    }
+
+    return { text: text.join(' ').trim(), terms, unknown };
+  }
+
+  /**
+   * Sammelt die Begriffe, die hervorgehoben werden sollen.
+   *
+   * @param {unknown} query
+   * @returns {string[]}
+   */
+  function highlightTerms(query) {
+    const parsed = parseQuery(query);
+    return [parsed.text, ...parsed.terms.map((term) => term.value)].filter(Boolean);
+  }
+
+  /**
+   * Prueft eine einzelne Feldbedingung gegen einen Datensatz.
+   *
+   * @param {Record} record
+   * @param {{field: string, value: string}} term
+   * @returns {boolean}
+   */
+  function matchesTerm(record, term) {
+    const field = SEARCH_FIELDS[term.field];
+    const needle = term.value.toLowerCase();
+
+    if (field.meta) {
+      return field.meta.some((name) => {
+        const value = record.source[name] ?? (name === 'ID' ? record.id : '');
+        return String(value).toLowerCase().includes(needle);
+      });
+    }
+
+    if (field.tags) return record.derived.segmentIndex.tags.includes(needle);
+
+    return (record.derived.segmentIndex.values[field.segment] ?? '').includes(needle);
   }
 
   /**
@@ -91,6 +235,7 @@
         interchange: ns.readInterchangeHeader(messages),
         acknowledgements: messages.map(ns.readAcknowledgement).filter(Boolean),
         findings: ns.collectFindings(messages),
+        segmentIndex: buildSegmentIndex(messages),
         searchIndex: buildSearchIndex(source, payload),
       },
     };
@@ -258,9 +403,9 @@
    * @returns {Record[]}
    */
   function filterRecords(records, criteria = {}) {
-    const needle = String(criteria.query ?? '')
-      .trim()
-      .toLowerCase();
+    // Einmal je Filtervorgang, nicht je Datensatz.
+    const { text, terms } = parseQuery(criteria.query);
+    const needle = text.toLowerCase();
     const {
       messageFormat = '',
       direction = '',
@@ -268,8 +413,11 @@
       messageCategory = '',
     } = criteria;
 
-    return records.filter(({ source, derived }) => {
+    return records.filter((record) => {
+      const { source, derived } = record;
       if (needle.length > 0 && !derived.searchIndex.includes(needle)) return false;
+      // Bedingungen werden mit Und verknuepft.
+      for (const term of terms) if (!matchesTerm(record, term)) return false;
       if (messageFormat && source.messageFormat !== messageFormat) return false;
       if (direction && source.direction !== direction) return false;
       if (processingStatus && source.processingStatus !== processingStatus) return false;
@@ -307,6 +455,9 @@
   ns.normalizeRecords = normalizeRecords;
   ns.uniqueRecordId = uniqueRecordId;
   ns.createRecordFromEdifact = createRecordFromEdifact;
+  ns.SEARCH_FIELDS = SEARCH_FIELDS;
+  ns.parseQuery = parseQuery;
+  ns.highlightTerms = highlightTerms;
   ns.buildReferenceIndex = buildReferenceIndex;
   ns.extractOptionValues = extractOptionValues;
   ns.filterRecords = filterRecords;

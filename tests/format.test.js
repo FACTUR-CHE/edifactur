@@ -324,3 +324,42 @@ describe('decodeDateTime', () => {
     }
   });
 });
+
+describe('splitByQuery mit mehreren Begriffen', () => {
+  const marked = (text, query) =>
+    splitByQuery(text, query)
+      .filter((part) => part.match)
+      .map((part) => part.text);
+
+  it('hebt mehrere Begriffe hervor', () => {
+    assert.deepEqual(marked('Meier in DEMO-1', ['Meier', 'DEMO-1']), ['Meier', 'DEMO-1']);
+  });
+
+  it('verhaelt sich bei einem einzelnen Begriff wie bisher', () => {
+    assert.deepEqual(splitByQuery('abcabc', ['b']), [
+      { text: 'a', match: false },
+      { text: 'b', match: true },
+      { text: 'ca', match: false },
+      { text: 'b', match: true },
+      { text: 'c', match: false },
+    ]);
+  });
+
+  it('gibt bei gleicher Position dem laengeren Begriff den Vorrang', () => {
+    // Sonst haenge das Ergebnis von der Reihenfolge der Begriffe ab.
+    assert.deepEqual(marked('DEMO-MALO-1', ['DEMO', 'DEMO-MALO']), ['DEMO-MALO']);
+    assert.deepEqual(marked('DEMO-MALO-1', ['DEMO-MALO', 'DEMO']), ['DEMO-MALO']);
+  });
+
+  it('ignoriert leere Begriffe in der Liste', () => {
+    assert.deepEqual(marked('abc', ['', '  ', 'b']), ['b']);
+  });
+
+  it('liefert bei leerer Liste einen unmarkierten Abschnitt', () => {
+    assert.deepEqual(splitByQuery('abc', []), [{ text: 'abc', match: false }]);
+  });
+
+  it('ignoriert Gross- und Kleinschreibung', () => {
+    assert.deepEqual(marked('Meier', ['meier']), ['Meier']);
+  });
+});
