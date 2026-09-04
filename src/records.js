@@ -7,8 +7,9 @@
  *
  * Rein und DOM-frei. Zum Aufbau siehe den Kopfkommentar in edifact.js.
  *
- * Benoetigt: edifact.js (`parseEdifact`). Der Zugriff erfolgt erst zur
- * Laufzeit ueber den Namensraum, die Ladereihenfolge ist deshalb unerheblich.
+ * Benoetigt: edifact.js (`parseEdifact`), format.js (`parseTimestamp`). Der
+ * Zugriff erfolgt erst zur Laufzeit ueber den Namensraum, die Ladereihenfolge
+ * ist deshalb unerheblich.
  */
 
 (function (ns) {
@@ -66,6 +67,24 @@
    * EDIFACT-Element mit Komponententrenner wuerde als Feldsuche gelesen.
    */
   const PREFIX = /^([a-zA-Z]{2,10}):(.*)$/;
+
+  /** Millisekunden je Stunde. */
+  const HOUR_MS = 3600000;
+
+  /**
+   * Schnellauswahl des Zeitraumfilters: eine Zeitspanne zurueck ab jetzt.
+   *
+   * Bewusst gleitende Fenster und keine Kalendertage: "letzte 24 Stunden"
+   * heisst im Alltag die vergangenen 24 Stunden, nicht "seit gestern 0 Uhr".
+   */
+  const RANGE_PRESETS = Object.freeze({
+    '24h': Object.freeze({ label: 'Letzte 24 Stunden', hours: 24 }),
+    '7d': Object.freeze({ label: 'Letzte 7 Tage', hours: 24 * 7 }),
+    '30d': Object.freeze({ label: 'Letzte 30 Tage', hours: 24 * 30 }),
+  });
+
+  /** Datum aus einem `<input type="date">`: immer YYYY-MM-DD. */
+  const DATE_INPUT = /^(\d{4})-(\d{2})-(\d{2})$/;
 
   /**
    * @typedef {object} Record
@@ -204,6 +223,75 @@
   }
 
   /**
+   * Wandelt ein Eingabedatum in einen Zeitpunkt der Ortszeit.
+   *
+   * Ortszeit ist hier die richtige Wahl: die Anwenderin gibt den Tag ein, den
+   * sie auf ihrer Uhr sieht, und die Liste zeigt die Zeitstempel ebenfalls in
+   * Ortszeit. `new Date('2026-08-01')` waere dagegen UTC-Mitternacht und
+   * wuerde die Grenze je nach Zeitzone um Stunden verschieben.
+   *
+   * @param {unknown} value Datum als YYYY-MM-DD.
+   * @param {boolean} endOfDay `true` liefert das Ende des Tages (einschliessend).
+   * @returns {number|null} `null`, wenn kein Datum angegeben ist.
+   */
+  function dayBoundary(value, endOfDay) {
+    const found = DATE_INPUT.exec(String(value ?? '').trim());
+    if (!found) return null;
+
+    const [, year, month, day] = found.map(Number);
+    const date = endOfDay
+      ? new Date(year, month - 1, day, 23, 59, 59, 999)
+      : new Date(year, month - 1, day, 0, 0, 0, 0);
+
+    // Ein Eingabefeld liefert nur gueltige Daten, eine geladene Einstellung
+    // koennte den 31.02. enthalten.
+    if (Number.isNaN(date.getTime()) || date.getMonth() !== month - 1) return null;
+    return date.getTime();
+  }
+
+  /**
+   * Loest die Zeitraum-Auswahl in eine Zeitspanne auf.
+   *
+   * Die Schnellauswahl hat Vorrang vor den freien Datumsfeldern; die
+   * Oberflaeche haelt beides auseinander, indem sie das jeweils andere leert.
+   * Beide Grenzen sind einschliessend.
+   *
+   * @param {{preset?: string, from?: string, to?: string}} [range]
+   * @param {number} [now] Bezugspunkt der Schnellauswahl.
+   * @returns {{start: number, end: number}|null} `null` = kein Zeitraum gesetzt.
+   *   `start > end` ist moeglich (Bis vor Von) und bleibt hier stehen, damit
+   *   die Oberflaeche darauf hinweisen kann, statt es stillschweigend zu
+   *   vertauschen.
+   */
+  function resolveRange(range = {}, now = Date.now()) {
+    const preset = RANGE_PRESETS[range.preset];
+    if (preset) return { start: now - preset.hours * HOUR_MS, end: now };
+
+    const start = dayBoundary(range.from, false);
+    const end = dayBoundary(range.to, true);
+    if (start === null && end === null) return null;
+
+    return {
+      start: start ?? Number.NEGATIVE_INFINITY,
+      end: end ?? Number.POSITIVE_INFINITY,
+    };
+  }
+
+  /**
+   * Zaehlt die Datensaetze ohne lesbaren Zeitstempel.
+   *
+   * Sie koennen keinem Zeitraum zugeordnet werden und fallen deshalb aus jeder
+   * Zeitraum-Auswahl heraus. Damit das nicht wie ein verschwundener Datensatz
+   * aussieht, weist die Oberflaeche die Anzahl aus.
+   *
+   * @param {Record[]} records
+   * @returns {number}
+   */
+  function countUndatedRecords(records) {
+    return records.filter((record) => record.derived.timestamp === null).length;
+  }
+
+  /**
    * Baut einen Datensatz aus einem Rohobjekt.
    *
    * @param {object} source
@@ -221,6 +309,9 @@
       derived: {
         payload,
         messages,
+        // Einmal gelesen: der Zeitraumfilter laeuft sonst je Tastendruck ueber
+        // jeden Datensatz und parst denselben String erneut.
+        timestamp: ns.parseTimestamp(source.transferTimestamp),
         // Zum Wiederzusammensetzen einzelner Nachrichten gebraucht: der
         // Segmenttrenner steht nur im UNA-Header der Nutzlast.
         delimiters: ns.readDelimiters(payload),
@@ -392,11 +483,17 @@
    * @property {string} [direction]
    * @property {string} [processingStatus]
    * @property {string} [messageCategory]
+   * @property {{preset?: string, from?: string, to?: string}} [range]
    */
 
   /**
    * Filtert Datensaetze. Alle Kriterien sind Und-verknuepft, leere Kriterien
    * werden ignoriert.
+   *
+   * Ein gesetzter Zeitraum blendet Datensaetze ohne lesbaren Zeitstempel aus:
+   * sie liegen weder innerhalb noch ausserhalb der Spanne, und sie mitzuzeigen
+   * hiesse, einen Filter zu setzen und trotzdem Undatiertes zu bekommen. Wie
+   * viele es sind, weist `countUndatedRecords` aus.
    *
    * @param {Record[]} records
    * @param {FilterCriteria} criteria
@@ -406,6 +503,7 @@
     // Einmal je Filtervorgang, nicht je Datensatz.
     const { text, terms } = parseQuery(criteria.query);
     const needle = text.toLowerCase();
+    const range = resolveRange(criteria.range);
     const {
       messageFormat = '',
       direction = '',
@@ -418,6 +516,10 @@
       if (needle.length > 0 && !derived.searchIndex.includes(needle)) return false;
       // Bedingungen werden mit Und verknuepft.
       for (const term of terms) if (!matchesTerm(record, term)) return false;
+      if (range) {
+        const { timestamp } = derived;
+        if (timestamp === null || timestamp < range.start || timestamp > range.end) return false;
+      }
       if (messageFormat && source.messageFormat !== messageFormat) return false;
       if (direction && source.direction !== direction) return false;
       if (processingStatus && source.processingStatus !== processingStatus) return false;
@@ -460,6 +562,9 @@
   ns.highlightTerms = highlightTerms;
   ns.buildReferenceIndex = buildReferenceIndex;
   ns.extractOptionValues = extractOptionValues;
+  ns.RANGE_PRESETS = RANGE_PRESETS;
+  ns.resolveRange = resolveRange;
+  ns.countUndatedRecords = countUndatedRecords;
   ns.filterRecords = filterRecords;
   ns.clampPage = clampPage;
   ns.pageCount = pageCount;

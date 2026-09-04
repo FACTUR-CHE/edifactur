@@ -33,6 +33,26 @@
     /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
   /**
+   * Liest einen Zeitstempel als Millisekunden seit Epoche.
+   *
+   * Einzige Stelle, an der aus einem Feldwert ein Zeitpunkt wird -- die
+   * Anzeige und der Zeitraumfilter muessen sich darueber einig sein, welche
+   * Werte als Datum gelten. Unlesbare Werte ergeben `null` und keinen
+   * geratenen Zeitpunkt.
+   *
+   * @param {unknown} value ISO-8601-String oder Zeitstempel in Millisekunden.
+   * @returns {number|null}
+   */
+  function parseTimestamp(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value !== 'string' || !ISO_TIMESTAMP.test(value)) return null;
+
+    const ms = new Date(value).getTime();
+    // Number.isNaN(date) waere immer false -- geprueft werden muss die Zahl.
+    return Number.isNaN(ms) ? null : ms;
+  }
+
+  /**
    * Formatiert einen Zeitstempel. Ist der Wert nicht als Datum lesbar, wird er
    * unveraendert zurueckgegeben -- die Rohform ist fuer die Fehlersuche
    * nuetzlicher als "Invalid Date" und ehrlicher als ein geratenes Datum.
@@ -44,18 +64,9 @@
   function formatDate(value, locale = LOCALE) {
     if (!value) return PLACEHOLDER;
 
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value)) return String(value);
-      return new Date(value).toLocaleString(locale);
-    }
-
-    const text = String(value);
-    if (!ISO_TIMESTAMP.test(text)) return text;
-
-    const date = new Date(text);
-    // Number.isNaN(date) waere immer false -- geprueft werden muss die Zahl.
-    if (Number.isNaN(date.getTime())) return text;
-    return date.toLocaleString(locale);
+    const ms = parseTimestamp(value);
+    if (ms === null) return String(value);
+    return new Date(ms).toLocaleString(locale);
   }
 
   /**
@@ -441,6 +452,7 @@
 
   ns.PLACEHOLDER = PLACEHOLDER;
   ns.EMPTY_ELEMENT = EMPTY_ELEMENT;
+  ns.parseTimestamp = parseTimestamp;
   ns.formatDate = formatDate;
   ns.formatCount = formatCount;
   ns.splitByQuery = splitByQuery;

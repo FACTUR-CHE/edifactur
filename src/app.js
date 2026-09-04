@@ -68,6 +68,10 @@
     'resultInfo',
     'clearFilters',
     'search',
+    'rangePreset',
+    'rangeFrom',
+    'rangeTo',
+    'rangeHint',
     'recordList',
     'detail',
     'aboutButton',
@@ -222,9 +226,62 @@
    * @returns {object}
    */
   function readCriteria() {
-    const criteria = { query: state.query };
+    const criteria = { query: state.query, range: readRange() };
     for (const { id, field } of FILTERS) criteria[field] = dom[id].value;
     return criteria;
+  }
+
+  /** @returns {{preset: string, from: string, to: string}} */
+  function readRange() {
+    return {
+      preset: dom.rangePreset.value,
+      from: dom.rangeFrom.value,
+      to: dom.rangeTo.value,
+    };
+  }
+
+  /**
+   * Beschreibt den gesetzten Zeitraum unter den Filtern.
+   *
+   * Zwei Dinge muessen sichtbar sein, damit die Trefferzahl nachvollziehbar
+   * bleibt: dass nach Ortszeit gefiltert wird, und wie viele Datensaetze
+   * mangels Zeitstempel gar nicht eingeordnet werden koennen.
+   */
+  function updateRangeHint() {
+    const range = ns.resolveRange(readRange());
+    if (!range) {
+      dom.rangeHint.hidden = true;
+      dom.rangeHint.textContent = '';
+      return;
+    }
+
+    dom.rangeHint.hidden = false;
+
+    if (range.start > range.end) {
+      dom.rangeHint.dataset.variant = 'warning';
+      dom.rangeHint.textContent =
+        'Das Bis-Datum liegt vor dem Von-Datum — kein Zeitraum, also keine Treffer.';
+      return;
+    }
+
+    const bounds = `${formatBound(range.start, 'ohne Anfang')} bis ${formatBound(range.end, 'ohne Ende')} (Ortszeit)`;
+    const undated = ns.countUndatedRecords(state.records);
+    const skipped =
+      undated === 1
+        ? ' Ein Datensatz ohne lesbaren Zeitstempel ist ausgeblendet.'
+        : ` ${undated} Datensätze ohne lesbaren Zeitstempel sind ausgeblendet.`;
+
+    delete dom.rangeHint.dataset.variant;
+    dom.rangeHint.textContent = undated === 0 ? bounds : `${bounds}.${skipped}`;
+  }
+
+  /**
+   * @param {number} value Zeitpunkt in Millisekunden, moeglicherweise unendlich.
+   * @param {string} fallback Text fuer eine offene Grenze.
+   * @returns {string}
+   */
+  function formatBound(value, fallback) {
+    return Number.isFinite(value) ? ns.formatDate(value) : fallback;
   }
 
   /** @returns {object|null} */
@@ -413,6 +470,8 @@
   function applyFilters({ resetPage = false } = {}) {
     if (resetPage) state.page = 0;
 
+    updateRangeHint();
+
     state.filtered = ns.filterRecords(state.records, readCriteria());
     state.page = ns.clampPage(state.page, state.filtered.length, PAGE_SIZE);
 
@@ -441,6 +500,10 @@
   function resetControls() {
     dom.search.value = '';
     for (const { id } of FILTERS) dom[id].value = '';
+    dom.rangePreset.value = '';
+    dom.rangeFrom.value = '';
+    dom.rangeTo.value = '';
+    updateRangeHint();
     updateQuery('');
   }
 
@@ -585,6 +648,24 @@
 
   for (const { id } of FILTERS) {
     dom[id].addEventListener('change', () => {
+      state.activeMessage = 0;
+      applyFilters({ resetPage: true });
+    });
+  }
+
+  // Schnellauswahl und freie Datumsfelder schliessen einander aus. Sie
+  // gleichzeitig gesetzt stehen zu lassen waere nicht zu erklaeren: eines von
+  // beiden bliebe wirkungslos, ohne dass man saehe, welches.
+  dom.rangePreset.addEventListener('change', () => {
+    dom.rangeFrom.value = '';
+    dom.rangeTo.value = '';
+    state.activeMessage = 0;
+    applyFilters({ resetPage: true });
+  });
+
+  for (const id of ['rangeFrom', 'rangeTo']) {
+    dom[id].addEventListener('change', () => {
+      dom.rangePreset.value = '';
       state.activeMessage = 0;
       applyFilters({ resetPage: true });
     });

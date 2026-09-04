@@ -13,13 +13,13 @@ Verarbeitung findet ausschließlich im Browser statt.
 
 ## Funktionen
 
-| Karte                 | Beschreibung                                                                       |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| Suche und Filter      | Volltextsuche sowie Filter nach Format, Richtung, Status und Kategorie.            |
-| Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                 |
-| Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                  |
-| Rohdaten              | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                     |
-| Lokale Verarbeitung   | Hochgeladene Daten bleiben im Browser und werden nicht an einen Server übertragen. |
+| Karte                 | Beschreibung                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Suche und Filter      | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
+| Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                                            |
+| Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                                             |
+| Rohdaten              | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                                                |
+| Lokale Verarbeitung   | Hochgeladene Daten bleiben im Browser und werden nicht an einen Server übertragen.                            |
 
 ## Starten
 

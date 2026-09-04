@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light" />
     <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
          schlaegt an, wenn die beiden auseinanderlaufen. -->
-    <meta name="application-version" content="1.0.4" />
+    <meta name="application-version" content="1.0.5" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -149,6 +149,25 @@
             <option value="">Alle Kategorien</option>
           </select>
         </div>
+
+        <fieldset class="range-filter">
+          <legend>Übertragungszeitraum <span class="range-zone">in Ortszeit</span></legend>
+          <select id="rangePreset" aria-label="Zeitraum der Übertragung">
+            <option value="">Alle Zeiträume</option>
+            <option value="24h">Letzte 24 Stunden</option>
+            <option value="7d">Letzte 7 Tage</option>
+            <option value="30d">Letzte 30 Tage</option>
+          </select>
+          <label class="range-field" for="rangeFrom">
+            <span>Von</span>
+            <input id="rangeFrom" type="date" />
+          </label>
+          <label class="range-field" for="rangeTo">
+            <span>Bis</span>
+            <input id="rangeTo" type="date" />
+          </label>
+          <p id="rangeHint" class="range-hint" hidden></p>
+        </fieldset>
 
         <div class="workspace">
           <nav id="recordList" class="list-pane" aria-label="Nachrichtenliste"></nav>

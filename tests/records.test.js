@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import '../src/edifact.js';
+import '../src/format.js';
 import '../src/records.js';
 
 // Die Quelldateien sind klassische Skripte ohne export; sie werden per
@@ -9,10 +10,12 @@ import '../src/records.js';
 const {
   buildReferenceIndex,
   clampPage,
+  countUndatedRecords,
   highlightTerms,
   createRecordFromEdifact,
   extractOptionValues,
   filterRecords,
+  resolveRange,
   isPlainRecord,
   normalizeRecord,
   normalizeRecords,
@@ -185,6 +188,130 @@ describe('filterRecords', () => {
 
   it('liefert ein leeres Ergebnis, wenn nichts passt', () => {
     assert.deepEqual(filterRecords(records, { query: 'gibtesnicht' }), []);
+  });
+});
+
+describe('resolveRange', () => {
+  const now = Date.UTC(2026, 7, 15, 12, 0, 0);
+
+  it('liefert ohne Auswahl keinen Zeitraum', () => {
+    assert.equal(resolveRange(), null);
+    assert.equal(resolveRange({}), null);
+    assert.equal(resolveRange({ preset: '', from: '', to: '' }), null);
+  });
+
+  it('loest die Schnellauswahl als gleitendes Fenster auf', () => {
+    assert.deepEqual(resolveRange({ preset: '24h' }, now), {
+      start: now - 24 * 3600000,
+      end: now,
+    });
+    assert.deepEqual(resolveRange({ preset: '7d' }, now), {
+      start: now - 7 * 24 * 3600000,
+      end: now,
+    });
+    assert.deepEqual(resolveRange({ preset: '30d' }, now), {
+      start: now - 30 * 24 * 3600000,
+      end: now,
+    });
+  });
+
+  it('ignoriert eine unbekannte Schnellauswahl', () => {
+    assert.equal(resolveRange({ preset: 'gestern' }, now), null);
+  });
+
+  it('legt die Tagesgrenzen in Ortszeit', () => {
+    const range = resolveRange({ from: '2026-08-01', to: '2026-08-01' }, now);
+
+    assert.deepEqual(new Date(range.start), new Date(2026, 7, 1, 0, 0, 0, 0));
+    assert.deepEqual(new Date(range.end), new Date(2026, 7, 1, 23, 59, 59, 999));
+  });
+
+  it('laesst eine fehlende Grenze offen', () => {
+    assert.equal(resolveRange({ from: '2026-08-01' }, now).end, Number.POSITIVE_INFINITY);
+    assert.equal(resolveRange({ to: '2026-08-01' }, now).start, Number.NEGATIVE_INFINITY);
+  });
+
+  it('gibt der Schnellauswahl den Vorrang vor freien Daten', () => {
+    assert.deepEqual(resolveRange({ preset: '24h', from: '2020-01-01' }, now), {
+      start: now - 24 * 3600000,
+      end: now,
+    });
+  });
+
+  it('verwirft unbrauchbare Datumsangaben', () => {
+    assert.equal(resolveRange({ from: '01.08.2026' }, now), null);
+    assert.equal(resolveRange({ from: '2026-02-31' }, now), null);
+    assert.equal(resolveRange({ from: '2026-8-1' }, now), null);
+  });
+
+  it('dreht ein verkehrtes Paar nicht stillschweigend um', () => {
+    // Die Oberflaeche soll darauf hinweisen koennen; ein getauschtes Paar
+    // saehe aus wie ein gueltiges Ergebnis.
+    const range = resolveRange({ from: '2026-08-10', to: '2026-08-01' }, now);
+    assert.ok(range.start > range.end);
+  });
+});
+
+describe('filterRecords mit Zeitraum', () => {
+  const records = normalizeRecords([
+    source({ ID: 'frueh', transferTimestamp: '2026-08-01T00:00:00Z' }),
+    source({ ID: 'mitte', transferTimestamp: '2026-08-05T12:00:00Z' }),
+    source({ ID: 'spaet', transferTimestamp: '2026-08-10T23:30:00Z' }),
+    source({ ID: 'ohne', transferTimestamp: undefined }),
+    source({ ID: 'kaputt', transferTimestamp: 'irgendwann' }),
+  ]);
+
+  const ids = (range) => filterRecords(records, { range }).map((record) => record.id);
+
+  it('laesst ohne Zeitraum alles durch', () => {
+    assert.equal(ids({}).length, 5);
+  });
+
+  it('filtert zwischen zwei Daten', () => {
+    assert.deepEqual(ids({ from: '2026-08-05', to: '2026-08-05' }), ['mitte']);
+  });
+
+  it('schliesst beide Tagesgrenzen ein', () => {
+    // Grenzwert: 00:00 des Von-Tages und 23:59:59.999 des Bis-Tages zaehlen
+    // noch dazu. Die Zeitstempel liegen in UTC, der Filter in Ortszeit --
+    // deshalb ein Tag Luft an beiden Enden.
+    assert.deepEqual(ids({ from: '2026-07-31', to: '2026-08-11' }), ['frueh', 'mitte', 'spaet']);
+  });
+
+  it('blendet Datensaetze ohne lesbaren Zeitstempel aus', () => {
+    const found = ids({ from: '2000-01-01' });
+    assert.ok(!found.includes('ohne'));
+    assert.ok(!found.includes('kaputt'));
+  });
+
+  it('liefert bei verkehrtem Paar nichts', () => {
+    assert.deepEqual(ids({ from: '2026-08-10', to: '2026-08-01' }), []);
+  });
+
+  it('greift zusammen mit Suche und Filtern', () => {
+    const found = filterRecords(records, {
+      query: 'mitte',
+      messageFormat: 'UTILMD',
+      range: { from: '2026-08-01', to: '2026-08-31' },
+    });
+
+    assert.deepEqual(
+      found.map((record) => record.id),
+      ['mitte'],
+    );
+    // Derselbe Zeitraum, aber ein Filter, der nicht passt.
+    assert.deepEqual(
+      filterRecords(records, {
+        messageFormat: 'APERAK',
+        range: { from: '2026-08-01', to: '2026-08-31' },
+      }),
+      [],
+    );
+  });
+
+  it('zaehlt die Datensaetze ohne Zeitstempel', () => {
+    assert.equal(countUndatedRecords(records), 2);
+    assert.equal(countUndatedRecords([]), 0);
   });
 });
 

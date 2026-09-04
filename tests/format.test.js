@@ -14,8 +14,27 @@ const {
   formatDate,
   joinSegments,
   parseEdifact,
+  parseTimestamp,
   splitByQuery,
 } = globalThis.EdifactExplorer;
+
+describe('parseTimestamp', () => {
+  it('liest ISO-Zeitstempel und Millisekunden', () => {
+    assert.equal(parseTimestamp('2026-08-01T08:15:00Z'), Date.UTC(2026, 7, 1, 8, 15));
+    assert.equal(parseTimestamp(Date.UTC(2026, 7, 1)), Date.UTC(2026, 7, 1));
+  });
+
+  it('liefert null fuer alles, was kein Zeitpunkt ist', () => {
+    assert.equal(parseTimestamp(''), null);
+    assert.equal(parseTimestamp(null), null);
+    assert.equal(parseTimestamp(undefined), null);
+    assert.equal(parseTimestamp('irgendwann'), null);
+    assert.equal(parseTimestamp('01.08.2026'), null);
+    assert.equal(parseTimestamp('2026-13-45'), null);
+    assert.equal(parseTimestamp(Number.POSITIVE_INFINITY), null);
+    assert.equal(parseTimestamp({}), null);
+  });
+});
 
 describe('formatDate', () => {
   it('formatiert einen gueltigen Zeitstempel', () => {
