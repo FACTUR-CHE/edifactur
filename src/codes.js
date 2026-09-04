@@ -304,7 +304,137 @@
     719: 'CCYYMMDDHHMM-CCYYMMDDHHMM (Zeitraum)',
   });
 
+  /**
+   * DE 9321 Anwendungsfehler, Code -- die Ablehnungsgruende einer APERAK.
+   *
+   * Das UN-Verzeichnis definiert fuer DE 9321 keine Codewerte; die Liste ist
+   * anwendungsspezifisch. In der deutschen Marktkommunikation legt sie das
+   * BDEW fest.
+   *
+   * Quelle: CONTRL / APERAK Anwendungshandbuch, Version 2.4a, Stand MIG
+   * APERAK 2.1i / CONTRL 2.0b, Publikationsdatum 01.10.2024, Autor BDEW,
+   * Kapitel "Fehlercodes in ERC-Segment einer APERAK-Nachricht".
+   */
+  const APPLICATION_ERROR = Object.freeze({
+    Z10: 'ID unbekannt',
+    Z14: 'Objekt im IT-System nicht gefunden',
+    Z15: 'Objekt im IT-System nicht eindeutig',
+    Z16: 'Objekt nicht mehr im Netzgebiet',
+    Z17: 'Absender ist zum angegebenen Zeitintervall/Zeitpunkt dem Objekt nicht zugeordnet',
+    Z18: 'Empfänger ist zum angegebenen Zeitintervall/Zeitpunkt dem Objekt nicht zugeordnet',
+    Z19: 'Gerätenummer zum angegebenen Zeitintervall/Zeitpunkt an der Messlokation nicht bekannt',
+    Z20: 'OBIS-Kennzahl zum angegebenen Zeitintervall/Zeitpunkt am Objekt nicht bekannt',
+    Z21: 'Geschäftsvorfallinterne Referenzierung fehlerhaft',
+    Z24: 'Zuordnungs-Tupel unbekannt',
+    Z25:
+      'Absender ist zum angegebenen Zeitintervall/Zeitpunkt dem durch das Zuordnungs-Tupel ' +
+      'identifizierten Objekt nicht zugeordnet',
+    Z26:
+      'Empfänger ist zum angegebenen Zeitintervall/Zeitpunkt dem durch das Zuordnungs-Tupel ' +
+      'identifizierten Objekt nicht zugeordnet',
+    Z27: 'Vorkomma-Stellenzahl des Zählwertes ist zu lang',
+    Z29: 'Erforderliche Angabe für diesen Anwendungsfall fehlt',
+    Z30: 'Zeitreihe unvollständig',
+    Z31: 'Geschäftsvorfall wird vom Empfänger zurückgewiesen',
+    Z33: 'Referenziertes Geschäftsvorfall-Tupel nicht vorhanden',
+    Z34: 'Zeitintervall negativ oder Null',
+    Z35: 'Format nicht eingehalten',
+    Z37: 'Geschäftsvorfall darf vom Sender nicht gesendet werden',
+    Z38: 'Anzahl der übermittelten Codes überschreitet Paketdefinition',
+    Z39: 'Code nicht aus erlaubtem Wertebereich',
+    Z40: 'Segment- bzw. Segmentgruppenwiederholbarkeit überschritten',
+    Z41: 'Zeitangabe unplausibel',
+    Z42: 'Konfigurations-ID zum angegebenen Zeitintervall/Zeitpunkt nicht bekannt',
+    Z43: 'Geschäftsvorfall für Objekt mit der Eigenschaft nicht erlaubt',
+    Z44: 'Eigenschaft des Objekts weicht von der im Geschäftsvorfall codierten Eigenschaft ab',
+  });
+
+  /** DE 0085 Syntaxfehler, Code -- die Ablehnungsgruende einer CONTRL. */
+  const SYNTAX_ERROR = Object.freeze({
+    2: 'Syntaxversion oder -level nicht unterstützt',
+    7: 'Empfänger des Austauschs ist nicht der tatsächliche Empfänger',
+    12: 'Ungültiger Wert',
+    13: 'Pflichtangabe fehlt',
+    14: 'Wert an dieser Position nicht unterstützt',
+    15: 'An dieser Position nicht unterstützt',
+    16: 'Zu viele Bestandteile',
+    17: 'Keine Vereinbarung',
+    18: 'Nicht näher bezeichneter Fehler',
+    19: 'Ungültige Dezimalschreibweise',
+    20: 'Zeichen als Dienstzeichen ungültig',
+    21: 'Ungültige Zeichen',
+    22: 'Ungültige Dienstzeichen',
+    23: 'Unbekannter Absender des Austauschs',
+    24: 'Zu alt',
+    25: 'Testkennzeichen nicht unterstützt',
+    26: 'Doppelte Übertragung erkannt',
+    27: 'Sicherheitsfunktion nicht unterstützt',
+    28: 'Referenzen passen nicht zusammen',
+    29: 'Zähler stimmt nicht mit der Anzahl der empfangenen Elemente überein',
+    30: 'Gruppen und Nachrichten gemischt',
+    31: 'Mehr als ein Nachrichtentyp in einer Gruppe',
+    32: 'Untere Ebene leer',
+    33: 'Ungültiges Vorkommen außerhalb von Nachricht, Paket oder Gruppe',
+    34: 'Verschachtelungskennzeichen nicht erlaubt',
+    35: 'Zu viele Wiederholungen von Datenelement oder Segment',
+    36: 'Zu viele Wiederholungen einer Segmentgruppe',
+    37: 'Ungültige Zeichenart',
+    38: 'Ziffer vor dem Dezimalzeichen fehlt',
+    39: 'Datenelement zu lang',
+    40: 'Datenelement zu kurz',
+    41: 'Dauerhafter Fehler im Kommunikationsnetz',
+    42: 'Vorübergehender Fehler im Kommunikationsnetz',
+    43: 'Unbekannter Empfänger des Austauschs',
+    45: 'Abschließendes Trennzeichen',
+    46: 'Zeichensatz nicht unterstützt',
+    47: 'Umschlagstruktur nicht unterstützt',
+    48: 'Abhängigkeitsbedingung verletzt',
+  });
+
+  /** DE 0083 Handlung, Code -- sagt, ob eine CONTRL annimmt oder ablehnt. */
+  const ACKNOWLEDGEMENT_ACTION = Object.freeze({
+    4: 'Diese Ebene und alle darunter liegenden zurückgewiesen',
+    7: 'Diese Ebene anerkannt, darunter liegende anerkannt, sofern nicht ausdrücklich zurückgewiesen',
+    8: 'Austausch empfangen',
+  });
+
+  /** DE 0135 Dienstsegment, Code -- benennt das fehlerhafte Segment. */
+  const SERVICE_SEGMENT = Object.freeze({
+    UNA: 'Trennzeichenvorgabe',
+    UNB: 'Austauschkopf',
+    UNG: 'Gruppenkopf',
+    UNE: 'Gruppenende',
+    UNH: 'Nachrichtenkopf',
+    UNT: 'Nachrichtenende',
+    UNZ: 'Austauschende',
+    UCI: 'Antwort zum Austausch',
+    UCF: 'Antwort zur Gruppe',
+    UCM: 'Antwort zur Nachricht',
+    UCS: 'Segmentfehler',
+    UCD: 'Datenelementfehler',
+  });
+
+  /**
+   * DE 4451 Textgegenstand, Qualifier -- soweit im APERAK gebraucht.
+   *
+   * Quelle wie bei DE 9321: CONTRL / APERAK Anwendungshandbuch 2.4a. Die
+   * uebrigen Werte des Datenelements sind nicht erfasst und erscheinen
+   * deshalb als nicht hinterlegt.
+   */
+  const TEXT_SUBJECT = Object.freeze({
+    AAO: 'Fehlerbeschreibung (freier Text)',
+    ABO: 'Information über Abweichung',
+    Z02: 'Ortsangabe des AHB-Fehlers',
+  });
+
   const CODE_LISTS = Object.freeze({
+    // Fuehrende Nullen gehen bei unquotierten Schluesseln verloren, die
+    // Datenelement-Nummern in segments.js lauten aber "0083", "0085", "0135".
+    '0083': Object.freeze({ name: 'Handlung, Code', codes: ACKNOWLEDGEMENT_ACTION }),
+    '0085': Object.freeze({ name: 'Syntaxfehler, Code', codes: SYNTAX_ERROR }),
+    '0135': Object.freeze({ name: 'Dienstsegment, Code', codes: SERVICE_SEGMENT }),
+    4451: Object.freeze({ name: 'Textgegenstand, Qualifier', codes: TEXT_SUBJECT }),
+    9321: Object.freeze({ name: 'Anwendungsfehler, Code', codes: APPLICATION_ERROR }),
     1001: Object.freeze({ name: 'Dokumentenart', codes: DOCUMENT_NAME }),
     2379: Object.freeze({ name: 'Format von Datum, Uhrzeit oder Zeitraum', codes: DATE_FORMAT }),
     1153: Object.freeze({ name: 'Referenz, Qualifier', codes: REFERENCE_QUALIFIER }),

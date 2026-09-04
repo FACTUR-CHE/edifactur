@@ -15,6 +15,7 @@ const {
   hasUnaHeader,
   parseEdifact,
   readDelimiters,
+  readAcknowledgement,
   readInterchangeHeader,
   readMessageHeader,
   segmentLabel,
@@ -583,5 +584,125 @@ describe('parseEdifact: Nachrichtenkopf je Gruppe', () => {
 
     assert.equal(group.header, null);
     assert.equal(group.type, UNKNOWN_MESSAGE_TYPE);
+  });
+});
+
+describe('readAcknowledgement', () => {
+  const ack = (payload) => readAcknowledgement(parseEdifact(payload)[0]);
+
+  it('liefert fuer eine Fachnachricht null', () => {
+    assert.equal(ack("UNH+1+UTILMD:D:11A:UN:S2.1'BGM+E01+1+9'UNT+3+1'"), null);
+    assert.equal(ack("UNZ+1+REF'"), null);
+    assert.equal(readAcknowledgement(null), null);
+  });
+
+  it('liest die Fehlercodes einer negativen APERAK', () => {
+    const result = ack("UNH+1+APERAK:D:07B:UN:2.1i'BGM+313+A1+9'ERC+Z29'ERC+Z35'UNT+5+1'");
+
+    assert.equal(result.type, 'APERAK');
+    assert.equal(result.rejected, true);
+    assert.deepEqual(
+      result.errors.map((error) => error.code),
+      ['Z29', 'Z35'],
+    );
+    assert.equal(result.errors[0].element, '9321');
+  });
+
+  it('behandelt eine APERAK ohne ERC als Anerkennungsmeldung', () => {
+    const result = ack("UNH+1+APERAK:D:07B:UN:2.1i'BGM+313+A2+9'UNT+3+1'");
+
+    assert.equal(result.type, 'APERAK');
+    assert.equal(result.rejected, false);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('ordnet Freitext dem vorangehenden Fehlercode zu', () => {
+    const result = ack(
+      "UNH+1+APERAK:D:07B:UN:2.1i'" +
+        "ERC+Z29'FTX+ABO+++Marktlokation 1'FTX+Z02+++SG4 DTM'" +
+        "ERC+Z35'FTX+AAO+++Datum unplausibel'" +
+        "UNT+7+1'",
+    );
+
+    assert.deepEqual(
+      result.errors[0].texts.map((entry) => [entry.qualifier, entry.text]),
+      [
+        ['ABO', 'Marktlokation 1'],
+        ['Z02', 'SG4 DTM'],
+      ],
+    );
+    assert.deepEqual(
+      result.errors[1].texts.map((entry) => entry.text),
+      ['Datum unplausibel'],
+    );
+  });
+
+  it('fuegt die Textkomponenten eines FTX zusammen', () => {
+    const result = ack(
+      "UNH+1+APERAK:D:07B:UN:2.1i'ERC+Z29'FTX+ABO+++Erste Zeile:zweite Zeile'UNT+4+1'",
+    );
+
+    assert.equal(result.errors[0].texts[0].text, 'Erste Zeile zweite Zeile');
+  });
+
+  it('ignoriert Freitext vor dem ersten Fehlercode', () => {
+    const result = ack("UNH+1+APERAK:D:07B:UN:2.1i'FTX+ABO+++Ohne Bezug'ERC+Z29'UNT+4+1'");
+
+    assert.deepEqual(result.errors[0].texts, []);
+  });
+
+  it('liest den Syntaxfehler und die Handlung einer negativen CONTRL', () => {
+    const result = ack("UNH+1+CONTRL:D:3:UN:2.0b'UCI+REF1+1:500+2:500+4+13+UNB+2:1'UNT+3+1'");
+
+    assert.equal(result.type, 'CONTRL');
+    assert.equal(result.rejected, true);
+    assert.deepEqual(result.actions, ['4']);
+    assert.equal(result.errors[0].element, '0085');
+    assert.equal(result.errors[0].code, '13');
+    assert.equal(result.errors[0].tag, 'UCI');
+  });
+
+  it('behandelt eine CONTRL ohne Syntaxfehler als anerkannt', () => {
+    const result = ack("UNH+1+CONTRL:D:3:UN:2.0b'UCI+REF1+1:500+2:500+8'UNT+3+1'");
+
+    assert.equal(result.rejected, false);
+    assert.deepEqual(result.actions, ['8']);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('erkennt eine Ablehnung auch ohne Fehlercode an der Handlung', () => {
+    const result = ack("UNH+1+CONTRL:D:3:UN:2.0b'UCI+REF1+1:500+2:500+4'UNT+3+1'");
+
+    assert.equal(result.rejected, true);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('liest die Fehlercodes aus UCM, UCS und UCD an ihren Positionen', () => {
+    const result = ack(
+      "UNH+1+CONTRL:D:3:UN:2.0b'" +
+        "UCI+REF1+1:500+2:500+7'" +
+        "UCM+1+UTILMD:D:11A:UN+4+12+UNH'" +
+        "UCS+5+13'" +
+        "UCD+39+2:1'" +
+        "UNT+6+1'",
+    );
+
+    assert.deepEqual(
+      result.errors.map((error) => [error.tag, error.code]),
+      [
+        ['UCM', '12'],
+        ['UCS', '13'],
+        ['UCD', '39'],
+      ],
+    );
+    assert.deepEqual(result.actions, ['7', '4']);
+  });
+
+  it('behaelt einen nicht hinterlegten Code unveraendert', () => {
+    // Die Uebersetzung macht die Darstellungsschicht; dieses Modul liefert
+    // den Rohcode weiter, auch wenn keine Codeliste ihn kennt.
+    const result = ack("UNH+1+APERAK:D:07B:UN:2.1i'ERC+Z01'UNT+3+1'");
+
+    assert.equal(result.errors[0].code, 'Z01');
   });
 });

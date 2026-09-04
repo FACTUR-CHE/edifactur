@@ -77,7 +77,20 @@ describe('codeMeaning', () => {
 
 describe('CODE_LISTS', () => {
   it('deckt die im Ticket genannten Datenelemente ab', () => {
-    for (const element of ['3035', '1001', '1225', '1153', '3227', '6063', '6411', '5025']) {
+    for (const element of [
+      '3035',
+      '1001',
+      '1225',
+      '1153',
+      '3227',
+      '6063',
+      '6411',
+      '5025',
+      '9321',
+      '0085',
+      '0083',
+      '0135',
+    ]) {
       assert.ok(hasCodeList(element), `Codeliste fehlt fuer DE ${element}`);
     }
   });
@@ -139,5 +152,47 @@ describe('DE 2379 und die Feldlisten in format.js', () => {
       Object.keys(CODE_LISTS['2379'].codes).sort(),
       Object.keys(DATE_FORMATS).sort(),
     );
+  });
+});
+
+describe('Codelisten der Quittungsnachrichten', () => {
+  it('loest die APERAK-Fehlercodes aus DE 9321 auf', () => {
+    assert.deepEqual(codeMeaning('9321', 'Z29'), {
+      name: 'Erforderliche Angabe für diesen Anwendungsfall fehlt',
+    });
+    assert.deepEqual(codeMeaning('9321', 'Z10'), { name: 'ID unbekannt' });
+    assert.deepEqual(codeMeaning('9321', 'Z44'), {
+      name: 'Eigenschaft des Objekts weicht von der im Geschäftsvorfall codierten Eigenschaft ab',
+    });
+  });
+
+  it('kennzeichnet einen APERAK-Code, den das Handbuch nicht fuehrt', () => {
+    // Z01 kommt in AHB 2.4a nicht vor. Wichtig ist, dass das von "keine
+    // Codeliste vorhanden" unterscheidbar bleibt.
+    assert.deepEqual(codeMeaning('9321', 'Z01'), { name: null });
+  });
+
+  it('loest die CONTRL-Syntaxfehler aus DE 0085 auf', () => {
+    assert.deepEqual(codeMeaning('0085', '13'), { name: 'Pflichtangabe fehlt' });
+    assert.deepEqual(codeMeaning('0085', '12'), { name: 'Ungültiger Wert' });
+    assert.deepEqual(codeMeaning('0085', '26'), { name: 'Doppelte Übertragung erkannt' });
+  });
+
+  it('fuehrt fuer DE 0085 keinen Code 44', () => {
+    // Die Norm kennt zwischen 43 und 45 keinen Wert.
+    assert.deepEqual(codeMeaning('0085', '44'), { name: null });
+  });
+
+  it('loest Handlung und Dienstsegment auf', () => {
+    assert.match(codeMeaning('0083', '4').name, /zurückgewiesen/);
+    assert.deepEqual(codeMeaning('0083', '8'), { name: 'Austausch empfangen' });
+    assert.deepEqual(codeMeaning('0135', 'UNB'), { name: 'Austauschkopf' });
+    assert.deepEqual(codeMeaning('0135', 'UCM'), { name: 'Antwort zur Nachricht' });
+  });
+
+  it('loest die Textgegenstaende des APERAK auf', () => {
+    assert.deepEqual(codeMeaning('4451', 'ABO'), { name: 'Information über Abweichung' });
+    assert.deepEqual(codeMeaning('4451', 'AAO'), { name: 'Fehlerbeschreibung (freier Text)' });
+    assert.deepEqual(codeMeaning('4451', 'Z02'), { name: 'Ortsangabe des AHB-Fehlers' });
   });
 });

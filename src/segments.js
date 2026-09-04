@@ -430,6 +430,106 @@
       ],
     },
 
+    // -- Dienstsegmente der CONTRL -----------------------------------------
+    //
+    // Sie tragen die Ablehnungsgruende einer Syntaxfehlermeldung. S011
+    // benennt die Fundstelle innerhalb des beanstandeten Segments.
+
+    UCI: {
+      name: 'Antwort zum Austausch',
+      elements: [
+        { code: '0020', name: 'Austauschreferenz' },
+        {
+          code: 'S002',
+          name: 'Absender des Austauschs',
+          components: [
+            { code: '0004', name: 'Absenderkennung' },
+            { code: '0007', name: 'Kennungsqualifier' },
+            { code: '0008', name: 'Interne Absenderkennung' },
+            { code: '0042', name: 'Interne Absender-Unterkennung' },
+          ],
+        },
+        {
+          code: 'S003',
+          name: 'Empfänger des Austauschs',
+          components: [
+            { code: '0010', name: 'Empfängerkennung' },
+            { code: '0007', name: 'Kennungsqualifier' },
+            { code: '0014', name: 'Interne Empfängerkennung' },
+            { code: '0046', name: 'Interne Empfänger-Unterkennung' },
+          ],
+        },
+        { code: '0083', name: 'Handlung, Code' },
+        { code: '0085', name: 'Syntaxfehler, Code' },
+        { code: '0135', name: 'Dienstsegment, Code' },
+        {
+          code: 'S011',
+          name: 'Fundstelle des Fehlers',
+          components: [
+            { code: '0098', name: 'Position des fehlerhaften Datenelements im Segment' },
+            { code: '0104', name: 'Position der fehlerhaften Komponente' },
+            { code: '0136', name: 'Wiederholung des fehlerhaften Datenelements' },
+          ],
+        },
+        { code: '0534', name: 'Sicherheitsreferenznummer' },
+        { code: '0138', name: 'Position des Sicherheitssegments' },
+      ],
+    },
+
+    UCM: {
+      name: 'Antwort zur Nachricht',
+      elements: [
+        { code: '0062', name: 'Nachrichten-Referenznummer' },
+        {
+          code: 'S009',
+          name: 'Nachrichtenbezeichner',
+          components: [
+            { code: '0065', name: 'Nachrichtentyp' },
+            { code: '0052', name: 'Versionsnummer' },
+            { code: '0054', name: 'Releasenummer' },
+            { code: '0051', name: 'Verwaltende Organisation' },
+            { code: '0057', name: 'Anwendungsspezifische Kennung (Formatversion)' },
+          ],
+        },
+        { code: '0083', name: 'Handlung, Code' },
+        { code: '0085', name: 'Syntaxfehler, Code' },
+        { code: '0135', name: 'Dienstsegment, Code' },
+        {
+          code: 'S011',
+          name: 'Fundstelle des Fehlers',
+          components: [
+            { code: '0098', name: 'Position des fehlerhaften Datenelements im Segment' },
+            { code: '0104', name: 'Position der fehlerhaften Komponente' },
+            { code: '0136', name: 'Wiederholung des fehlerhaften Datenelements' },
+          ],
+        },
+      ],
+    },
+
+    UCS: {
+      name: 'Segmentfehler',
+      elements: [
+        { code: '0096', name: 'Position des Segments in der Nachricht' },
+        { code: '0085', name: 'Syntaxfehler, Code' },
+      ],
+    },
+
+    UCD: {
+      name: 'Datenelementfehler',
+      elements: [
+        { code: '0085', name: 'Syntaxfehler, Code' },
+        {
+          code: 'S011',
+          name: 'Fundstelle des Fehlers',
+          components: [
+            { code: '0098', name: 'Position des fehlerhaften Datenelements im Segment' },
+            { code: '0104', name: 'Position der fehlerhaften Komponente' },
+            { code: '0136', name: 'Wiederholung des fehlerhaften Datenelements' },
+          ],
+        },
+      ],
+    },
+
     ERC: {
       name: 'Fehlercode',
       elements: [

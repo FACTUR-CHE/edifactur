@@ -26,6 +26,11 @@
     { value: 'raw', label: 'EDIFACT-Rohdaten' },
   ]);
 
+  /** Hinweis, wenn ein Code nicht in der hinterlegten Codeliste steht. */
+  const UNLISTED_CODE_TITLE =
+    'Der Code steht nicht in der hinterlegten Codeliste. Das heißt nicht, dass er ungültig ist — ' +
+    'die Tabellen sind kuratierte Teilmengen, und die EDI@Energy-eigenen Codes sind noch nicht erfasst.';
+
   /**
    * Baut eine Tab-Leiste nach dem ARIA-Tabs-Muster: rollende
    * Tabulator-Reihenfolge (nur der aktive Tab ist per Tab erreichbar), Rest
@@ -276,6 +281,80 @@
   }
 
   /**
+   * Zeichnet eine Fehlerzeile einer Quittungsnachricht.
+   *
+   * @param {object} error
+   * @returns {HTMLElement}
+   */
+  function acknowledgementError(error) {
+    const meaning = ns.codeMeaning(error.element, error.code);
+
+    return ns.el('li', { class: 'ack-error' }, [
+      ns.el('div', { class: 'ack-error-head' }, [
+        ns.el('code', { class: 'de', text: error.code }),
+        error.tag ? ns.el('small', { text: error.tag }) : null,
+        ns.el('span', {
+          class: meaning?.name ? 'ack-error-name' : 'ack-error-name code-unlisted',
+          title: meaning?.name ? false : UNLISTED_CODE_TITLE,
+          text: meaning?.name ?? 'nicht hinterlegt',
+        }),
+      ]),
+      error.texts.length > 0
+        ? ns.el(
+            'ul',
+            { class: 'ack-texts' },
+            error.texts.map((entry) => {
+              const subject = ns.codeMeaning('4451', entry.qualifier);
+              const label = subject?.name ?? entry.qualifier;
+              return ns.el('li', {}, [
+                label ? ns.el('span', { class: 'ack-text-label', text: `${label}: ` }) : null,
+                entry.text,
+              ]);
+            }),
+          )
+        : null,
+    ]);
+  }
+
+  /**
+   * Fasst die Quittungsnachrichten eines Datensatzes oben zusammen.
+   *
+   * Der Ablehnungsgrund ist der einzige Grund, ein APERAK zu oeffnen. Er darf
+   * nicht erst nach dem Durchscrollen der Segmente sichtbar werden.
+   *
+   * Annahme und Ablehnung sind nicht allein an der Farbe zu unterscheiden --
+   * der Zustand steht als Wort daneben.
+   *
+   * @param {object} record
+   * @returns {HTMLElement|null} Null, wenn keine Quittungsnachricht vorliegt.
+   */
+  function acknowledgementSection(record) {
+    const summaries = record.derived.acknowledgements ?? [];
+    if (summaries.length === 0) return null;
+
+    return ns.el(
+      'div',
+      { class: 'section' },
+      summaries.map((summary) =>
+        ns.el('div', { class: summary.rejected ? 'ack ack-rejected' : 'ack ack-accepted' }, [
+          ns.el('p', { class: 'ack-head' }, [
+            ns.el('strong', { text: summary.type }),
+            ' · ',
+            summary.rejected ? 'Abgelehnt' : 'Anerkannt, ohne Fehlermeldung',
+          ]),
+          summary.errors.length > 0
+            ? ns.el(
+                'ul',
+                { class: 'ack-errors', 'aria-label': 'Gemeldete Fehler' },
+                summary.errors.map(acknowledgementError),
+              )
+            : null,
+        ]),
+      ),
+    );
+  }
+
+  /**
    * Beschriftet einen Datensatz kurz fuer eine Sprungmarke.
    *
    * @param {object} record
@@ -424,11 +503,6 @@
    * @param {string} query
    * @returns {HTMLElement}
    */
-  /** Hinweis, wenn ein Code nicht in der hinterlegten Codeliste steht. */
-  const UNLISTED_CODE_TITLE =
-    'Der Code steht nicht in der hinterlegten Codeliste. Das heißt nicht, dass er ungültig ist — ' +
-    'die Tabellen sind kuratierte Teilmengen, und die EDI@Energy-eigenen Codes sind noch nicht erfasst.';
-
   /**
    * Loest einen Codewert in Klartext auf.
    *
@@ -748,6 +822,7 @@
     ns.append(container, [
       head,
       meta,
+      acknowledgementSection(record),
       chainSection(chain.sources),
       interchangeSection(derived.interchange, query),
       // Befunde zum Austausch als Ganzes stehen ueber der Ansichtsumschaltung,

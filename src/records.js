@@ -89,6 +89,7 @@
         // Gilt fuer geladene und fuer eingeklebte Nachrichten gleichermassen,
         // weil createRecordFromEdifact ueber diese Funktion laeuft.
         interchange: ns.readInterchangeHeader(messages),
+        acknowledgements: messages.map(ns.readAcknowledgement).filter(Boolean),
         findings: ns.collectFindings(messages),
         searchIndex: buildSearchIndex(source, payload),
       },

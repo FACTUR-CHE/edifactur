@@ -677,6 +677,76 @@ pre {
   margin: 0;
 }
 
+/* -- Quittungsnachrichten ------------------------------------------------ */
+
+/* Der Ablehnungsgrund steht oben im Detailbereich. Anerkennung und
+   Ablehnung sind nicht allein an der Farbe zu unterscheiden -- der Zustand
+   steht als Wort in der Kopfzeile. */
+.ack {
+  padding: 12px 14px;
+  border-inline-start: 4px solid var(--accent);
+  background: var(--surface-highlight);
+}
+
+.ack + .ack {
+  margin-block-start: 8px;
+}
+
+.ack-rejected {
+  border-color: var(--danger-ink);
+  background: var(--danger-surface);
+}
+
+.ack-head {
+  margin: 0;
+  color: var(--brand-deep);
+  font-size: 15px;
+}
+
+.ack-rejected .ack-head {
+  color: var(--danger-ink);
+}
+
+.ack-errors {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ack-error + .ack-error {
+  margin-block-start: 8px;
+  padding-block-start: 8px;
+  border-block-start: 1px solid var(--line-soft);
+}
+
+.ack-error-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+
+.ack-error-name {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.ack-error-head small {
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+}
+
+.ack-texts {
+  margin: 4px 0 0;
+  padding-inline-start: 18px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.ack-text-label {
+  color: var(--muted);
+}
+
 /* -- Vorgangskette ------------------------------------------------------- */
 
 .chain {

@@ -44,9 +44,30 @@
     MOA: 'Betrag',
     FTX: 'Freitext',
     ERC: 'Fehlercode',
+    UCI: 'Antwort zum Austausch',
+    UCM: 'Antwort zur Nachricht',
+    UCS: 'Segmentfehler',
+    UCD: 'Datenelementfehler',
     UNT: 'Nachrichtenende',
     UNZ: 'Austauschende',
   });
+
+  /**
+   * Segmente, die in einer CONTRL einen Syntaxfehler tragen, samt der
+   * Elementposition ihres Fehlercodes DE 0085.
+   *
+   *     UCI  0020, S002, S003, 0083, 0085, ...   -> Position 4
+   *     UCM  0062, S009, 0083, 0085, ...         -> Position 3
+   *     UCS  0096, 0085                          -> Position 1
+   *     UCD  0085, S011                          -> Position 0
+   */
+  const SYNTAX_ERROR_POSITIONS = Object.freeze({ UCI: 4, UCM: 3, UCS: 1, UCD: 0 });
+
+  /** Elementposition der Handlung DE 0083, die Annahme oder Ablehnung sagt. */
+  const ACTION_POSITIONS = Object.freeze({ UCI: 3, UCM: 2 });
+
+  /** DE 0083: diese Ebene und alle darunter zurueckgewiesen. */
+  const ACTION_REJECTED = '4';
 
   /**
    * Syntax-Kennungen aus UNB S001 DE 0001.
@@ -562,6 +583,76 @@
   }
 
   /**
+   * Fasst eine Quittungsnachricht zusammen: APERAK oder CONTRL.
+   *
+   * Bei einem APERAK ist das ERC-Segment der einzige Grund, die Nachricht zu
+   * oeffnen. Bisher stand es irgendwo mitten in der Segmentliste -- man musste
+   * scrollen, um zu erfahren, warum abgelehnt wurde.
+   *
+   * Die Zuordnung von Freitext zum Fehler folgt der Reihenfolge: FTX-Segmente
+   * gehoeren zu dem ERC, das ihnen vorangeht. Im APERAK stehen sie in
+   * derselben Segmentgruppe wie ihr ERC; da dieser Parser Segmentgruppen nicht
+   * aufloest, ist die Position der verlaessliche Anhaltspunkt.
+   *
+   * Codes bleiben Codes: die Uebersetzung in Klartext macht die
+   * Darstellungsschicht, dieses Modul kennt keine Codelisten.
+   *
+   * @param {object} message Eine Segmentgruppe aus parseEdifact.
+   * @returns {object|null} `null`, wenn es keine Quittungsnachricht ist.
+   */
+  function readAcknowledgement(message) {
+    const type = message?.header?.type;
+    if (type !== 'APERAK' && type !== 'CONTRL') return null;
+
+    const errors = [];
+    let current = null;
+
+    for (const segment of message.segments) {
+      if (segment.tag === 'ERC') {
+        current = { element: '9321', code: segment.components[0]?.[0] ?? '', texts: [] };
+        errors.push(current);
+        continue;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(SYNTAX_ERROR_POSITIONS, segment.tag)) {
+        const code = segment.elements[SYNTAX_ERROR_POSITIONS[segment.tag]] ?? '';
+        // Ein Dienstsegment ohne Fehlercode meldet keinen Fehler, es
+        // quittiert nur. Nur die Handlung unten wird daraus gelesen.
+        if (code) {
+          current = { element: '0085', code, tag: segment.tag, texts: [] };
+          errors.push(current);
+        } else {
+          current = null;
+        }
+        continue;
+      }
+
+      if (segment.tag === 'FTX' && current) {
+        // C108 fuehrt den Freitext in bis zu fuenf Komponenten. Sie bilden
+        // zusammen einen Text und werden deshalb zusammengefuegt.
+        const text = (segment.components[3] ?? []).filter(Boolean).join(' ').trim();
+        if (text) {
+          current.texts.push({ qualifier: segment.components[0]?.[0] ?? '', text });
+        }
+      }
+    }
+
+    const actions = message.segments
+      .filter((segment) => Object.prototype.hasOwnProperty.call(ACTION_POSITIONS, segment.tag))
+      .map((segment) => segment.elements[ACTION_POSITIONS[segment.tag]] ?? '');
+
+    return {
+      type,
+      errors,
+      actions,
+      // Ein APERAK ohne ERC ist eine Anerkennungsmeldung. Eine CONTRL gilt
+      // als abgelehnt, wenn eine Ebene DE 0083 = 4 meldet oder ein
+      // Syntaxfehler genannt ist.
+      rejected: errors.length > 0 || actions.includes(ACTION_REJECTED),
+    };
+  }
+
+  /**
    * Sammelt alle Pruefbefunde einer Nutzlast.
    *
    * Einziger Einstieg fuer die Datensatzschicht -- neue Pruefungen werden hier
@@ -592,4 +683,5 @@
   ns.collectFindings = collectFindings;
   ns.readInterchangeHeader = readInterchangeHeader;
   ns.readMessageHeader = readMessageHeader;
+  ns.readAcknowledgement = readAcknowledgement;
 })((globalThis.EdifactExplorer ??= {}));
