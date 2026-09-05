@@ -167,6 +167,57 @@ describe('Tastenwege', () => {
   });
 });
 
+describe('Farbschema', () => {
+  const root = document.documentElement;
+  const themeSelect = element('themeSelect');
+
+  it('folgt beim Start der Systemeinstellung', () => {
+    // Ohne gespeicherte Wahl bleibt das Attribut weg, damit
+    // `prefers-color-scheme` im Stylesheet entscheidet.
+    assert.equal(root.dataset.theme, undefined);
+    assert.equal(themeSelect.value, 'system');
+  });
+
+  it('uebernimmt eine ausdrueckliche Wahl', () => {
+    themeSelect.value = 'dark';
+    themeSelect.dispatch('change');
+
+    assert.equal(root.dataset.theme, 'dark');
+  });
+
+  it('nimmt das Attribut fuer die Systemeinstellung wieder weg', () => {
+    themeSelect.value = 'system';
+    themeSelect.dispatch('change');
+
+    assert.equal(root.dataset.theme, undefined);
+  });
+
+  it('vertraegt eine gesperrte Ablage', () => {
+    // Im privaten Fenster und unter file:// wirft schon der Zugriff. Die Wahl
+    // gilt dann fuer die Sitzung -- sie nicht speichern zu koennen ist kein
+    // Grund, sie nicht anzuwenden.
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('Zugriff verweigert');
+      },
+    });
+
+    try {
+      themeSelect.value = 'light';
+      themeSelect.dispatch('change');
+      assert.equal(root.dataset.theme, 'light');
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'localStorage', original);
+      else delete globalThis.localStorage;
+    }
+
+    themeSelect.value = 'system';
+    themeSelect.dispatch('change');
+  });
+});
+
 describe('Virtualisierte Liste', () => {
   /** Rollt die Liste und loest das Ereignis aus, wie der Browser es tut. */
   const scrollTo = (top) => {

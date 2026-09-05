@@ -24,6 +24,19 @@
    */
   const RECORD_HEIGHT = 112;
 
+  /** Schluessel der gespeicherten Farbschema-Wahl. */
+  const THEME_KEY = 'edifact-explorer.theme';
+
+  /**
+   * Zustaende des Farbschemas.
+   *
+   * `system` setzt **kein** Attribut: dann entscheidet der Media-Query
+   * `prefers-color-scheme` im Stylesheet. Ein Attribut zu setzen hiesse, die
+   * Systemeinstellung einzufrieren -- wechselt der Rechner abends auf dunkel,
+   * bliebe die Seite hell.
+   */
+  const THEMES = Object.freeze(['system', 'light', 'dark']);
+
   /** Wartezeit, bevor eine Eingabe im Suchfeld einen Neuaufbau ausloest. */
   const SEARCH_DEBOUNCE_MS = 150;
 
@@ -98,6 +111,7 @@
     'rangeHint',
     'recordList',
     'detail',
+    'themeSelect',
     'aboutButton',
     'aboutDialog',
     'aboutClose',
@@ -1188,6 +1202,52 @@
     event.preventDefault();
     moveSelection(step);
   });
+
+  // --- Farbschema ----------------------------------------------------------
+
+  /**
+   * Liest die gespeicherte Wahl.
+   *
+   * `localStorage` ist nicht ueberall zu haben: im privaten Fenster, bei
+   * gesperrten Websitedaten und unter `file://` in manchen Browsern wirft
+   * schon der Zugriff. Ohne gespeicherte Wahl gilt die Systemeinstellung.
+   *
+   * @returns {string}
+   */
+  function readTheme() {
+    try {
+      const stored = localStorage.getItem(THEME_KEY);
+      return THEMES.includes(stored) ? stored : 'system';
+    } catch {
+      return 'system';
+    }
+  }
+
+  /**
+   * Uebernimmt eine Wahl und merkt sie sich.
+   *
+   * @param {string} value
+   * @param {boolean} [remember] Beim Start wird nur gelesen, nicht geschrieben.
+   */
+  function applyTheme(value, remember = true) {
+    const theme = THEMES.includes(value) ? value : 'system';
+
+    if (theme === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+
+    dom.themeSelect.value = theme;
+    if (!remember) return;
+
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Die Wahl gilt fuer diese Sitzung. Sie nicht speichern zu koennen ist
+      // kein Grund, sie nicht anzuwenden.
+    }
+  }
+
+  applyTheme(readTheme(), false);
+  dom.themeSelect.addEventListener('change', () => applyTheme(dom.themeSelect.value));
 
   // --- Info-Dialog ---------------------------------------------------------
 

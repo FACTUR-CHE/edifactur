@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light" />
     <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
          schlaegt an, wenn die beiden auseinanderlaufen. -->
-    <meta name="application-version" content="1.0.16" />
+    <meta name="application-version" content="1.0.17" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -28,6 +28,12 @@
           <span class="brand-mark" aria-hidden="true"></span>
         </div>
         <div class="file-control">
+          <label class="visually-hidden" for="themeSelect">Farbschema</label>
+          <select id="themeSelect" class="theme-select">
+            <option value="system">Farbschema: System</option>
+            <option value="light">Farbschema: hell</option>
+            <option value="dark">Farbschema: dunkel</option>
+          </select>
           <button id="aboutButton" class="link-button" type="button">Über den Viewer</button>
           <span id="fileName" class="file-name">Keine Datei geladen</span>
           <button id="fileButton" class="button" type="button">JSON-Datei öffnen</button>

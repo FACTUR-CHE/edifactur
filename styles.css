@@ -21,6 +21,11 @@
   --blue-700: #00558f;
   --blue-600: #006da9;
   --blue-500: #0072bc;
+
+  /* Rahmen von Bedienelementen. Der hellere --blue-200 kam auf Weiss nur auf
+     1,75:1 und verfehlte damit die 3:1 fuer die Umrandung eines
+     Bedienelements. */
+  --blue-400: #6b95b6;
   --blue-300: #8ec5e7;
   --blue-200: #adc7dd;
   --blue-100: #d7e8f4;
@@ -32,6 +37,9 @@
   --gray-800: #41454b;
   --gray-700: #50555c;
   --gray-600: #556572;
+
+  /* Stiller Text. --gray-500 erreichte auf Weiss nur 4,05:1. */
+  --gray-550: #5f6e7c;
   --gray-500: #71808e;
   --gray-300: #d4e0e9;
   --gray-100: #e6edf2;
@@ -43,22 +51,63 @@
   --amber-800: #8a5d0c;
   --amber-050: #fdf4e3;
 
+  /* -- Primitive: Nachtskala ----------------------------------------------
+   * Eigene Skala fuer das dunkle Schema. Sie steht hier auf `:root` und nicht
+   * im Media-Query: dort werden ausschliesslich die semantischen Token
+   * umbelegt, kein Farbwert entsteht erst dort. Wer die Palette lesen will,
+   * findet sie vollstaendig an dieser einen Stelle.
+   */
+  --night-950: #0b1219;
+  --night-900: #101922;
+  --night-850: #16212b;
+  --night-800: #1c2937;
+  --night-700: #243444;
+  --night-600: #33475a;
+  --night-500: #465e73;
+  --night-450: #5c7386;
+  --night-200: #a9bccb;
+  --night-100: #c8d7e3;
+  --night-050: #e8f0f6;
+
+  /* Blau traegt die Marke auch im Dunkeln -- dort aufgehellt, weil die
+     Corporate-Blaus auf dunklem Grund nicht mehr lesbar waeren. */
+  --sky-200: #a8d5f2;
+  --sky-300: #7fc0ea;
+  --sky-400: #4da6e0;
+
+  /* Signalfarben fuer dunklen Grund. */
+  --red-300: #f2a9a1;
+  --red-950: #2e1310;
+  --amber-300: #efc266;
+  --amber-950: #2d2109;
+
   /* -- Semantisch: Text --------------------------------------------------- */
   --ink: var(--gray-900);
   --ink-soft: var(--gray-600);
-  --muted: var(--gray-500);
+  --muted: var(--gray-550);
   --on-brand: var(--white);
+
+  /* Der FACTUR-Schriftzug. Eigene Token, weil er im hellen Schema in Grau
+     steht und im dunklen aufgehellt werden muss. */
+  --wordmark: var(--gray-800);
+  --wordmark-soft: var(--gray-700);
 
   /* -- Semantisch: Flaechen ----------------------------------------------- */
   --surface: var(--white);
   --surface-sunken: var(--blue-025);
   --surface-highlight: var(--blue-050);
   --page-background: linear-gradient(120deg, #f5f8fa, var(--white) 34%, #eef4f8);
+  --page-background-night: linear-gradient(
+    120deg,
+    var(--night-900),
+    var(--night-950) 34%,
+    var(--night-900)
+  );
 
   /* -- Semantisch: Linien ------------------------------------------------- */
   --line: var(--gray-300);
   --line-soft: var(--gray-100);
-  --line-field: var(--blue-200);
+  --line-field: var(--blue-400);
   --line-dashed: var(--blue-300);
 
   /* -- Semantisch: Marke und Interaktion ---------------------------------- */
@@ -68,8 +117,9 @@
   --accent: var(--blue-500);
   --focus: var(--blue-500);
   --control: var(--blue-200);
+  --control-ink: var(--brand-deep);
   --control-hover: var(--blue-700);
-  --control-disabled: var(--blue-100);
+  --control-hover-ink: var(--white);
 
   /* -- Semantisch: Codedarstellung ---------------------------------------- */
   --code-surface: var(--blue-900);
@@ -97,6 +147,90 @@
   --pad-masthead: clamp(20px, 11vw, 165px);
   --pad-page: clamp(16px, 3vw, 48px);
   --band-height: 60px;
+}
+
+/* -- Dunkles Schema ------------------------------------------------------
+ * Nur Umbelegung: jeder Farbwert steht oben auf `:root`. Die Zuordnung
+ * erscheint zweimal -- einmal fuer die Systemeinstellung, einmal fuer die
+ * ausdrueckliche Wahl im Umschalter. CSS kennt keinen Weg, einen
+ * Media-Query und einen Attributselektor in einer Regel zu fuehren.
+ * `tests/styles.test.js` haelt beide Faelle deckungsgleich.
+ *
+ * `:not([data-theme='light'])` gibt der ausdruecklichen Wahl den Vorrang vor
+ * der Systemeinstellung.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --ink: var(--night-050);
+    --ink-soft: var(--night-100);
+    --muted: var(--night-200);
+    --on-brand: var(--night-950);
+    --wordmark: var(--night-050);
+    --wordmark-soft: var(--night-200);
+    --surface: var(--night-850);
+    --surface-sunken: var(--night-800);
+    --surface-highlight: var(--night-700);
+    --page-background: var(--page-background-night);
+    --line: var(--night-600);
+    --line-soft: var(--night-700);
+    --line-field: var(--night-450);
+    --line-dashed: var(--night-500);
+    --brand: var(--sky-300);
+    --brand-deep: var(--sky-200);
+    --brand-light: var(--sky-400);
+    --accent: var(--sky-400);
+    --focus: var(--sky-400);
+    --control: var(--night-500);
+    --control-ink: var(--night-050);
+    --control-hover: var(--sky-300);
+    --control-hover-ink: var(--night-950);
+    --code-surface: var(--night-950);
+    --code-ink: var(--night-050);
+    --value-surface: var(--night-800);
+    --mark-surface: var(--night-600);
+    --danger-ink: var(--red-300);
+    --danger-surface: var(--red-950);
+    --warning-ink: var(--amber-300);
+    --warning-surface: var(--amber-950);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ink: var(--night-050);
+  --ink-soft: var(--night-100);
+  --muted: var(--night-200);
+  --on-brand: var(--night-950);
+  --wordmark: var(--night-050);
+  --wordmark-soft: var(--night-200);
+  --surface: var(--night-850);
+  --surface-sunken: var(--night-800);
+  --surface-highlight: var(--night-700);
+  --page-background: var(--page-background-night);
+  --line: var(--night-600);
+  --line-soft: var(--night-700);
+  --line-field: var(--night-450);
+  --line-dashed: var(--night-500);
+  --brand: var(--sky-300);
+  --brand-deep: var(--sky-200);
+  --brand-light: var(--sky-400);
+  --accent: var(--sky-400);
+  --focus: var(--sky-400);
+  --control: var(--night-500);
+  --control-ink: var(--night-050);
+  --control-hover: var(--sky-300);
+  --control-hover-ink: var(--night-950);
+  --code-surface: var(--night-950);
+  --code-ink: var(--night-050);
+  --value-surface: var(--night-800);
+  --mark-surface: var(--night-600);
+  --danger-ink: var(--red-300);
+  --danger-surface: var(--red-950);
+  --warning-ink: var(--amber-300);
+  --warning-surface: var(--amber-950);
 }
 
 /* == 2. Basis ============================================================= */
@@ -253,7 +387,7 @@ pre {
 
 .brand-name {
   display: block;
-  color: var(--gray-800);
+  color: var(--wordmark);
   font: 300 49px/1 var(--font-sans);
   letter-spacing: 0.045em;
 }
@@ -261,7 +395,7 @@ pre {
 .brand-tagline {
   display: block;
   margin: 2px 0 0 91px;
-  color: var(--gray-700);
+  color: var(--wordmark-soft);
   font: 300 16px/1 var(--font-sans);
   letter-spacing: 0.06em;
 }
@@ -307,13 +441,14 @@ pre {
   padding: 10px 14px;
   border: 0;
   background: var(--control);
-  color: var(--on-brand);
+  color: var(--control-ink);
   font: 600 15px var(--font-sans);
   transition: background 0.15s ease;
 }
 
 .button:hover {
   background: var(--control-hover);
+  color: var(--control-hover-ink);
 }
 
 .button-compact {
@@ -331,9 +466,14 @@ pre {
   font-size: 12px;
 }
 
-.button:disabled {
-  cursor: not-allowed;
-  background: var(--control-disabled);
+/* Sitzt in der Kopfzeile neben den Textknoepfen und soll sich wie einer
+   lesen -- kein Kasten, nur die Auswahl. */
+.theme-select {
+  padding: 7px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  font: 600 14px var(--font-sans);
 }
 
 .link-button {
@@ -1420,12 +1560,12 @@ dialog::backdrop {
 }
 
 .about-close:hover {
-  background: var(--white);
+  background: var(--surface);
   color: var(--brand);
 }
 
 .about-close:focus-visible {
-  outline-color: var(--white);
+  outline-color: var(--on-brand);
 }
 
 .about-body {

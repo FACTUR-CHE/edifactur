@@ -13,17 +13,18 @@ Verarbeitung findet ausschließlich im Browser statt.
 
 ## Funktionen
 
-| Karte                 | Beschreibung                                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Suche und Filter      | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
-| Große Datenmengen     | Die Trefferliste zeichnet nur den sichtbaren Ausschnitt und bleibt bei 50.000 Nachrichten flüssig.            |
-| Fachliche Kennungen   | Marktlokation, Zählpunkt, Prüfidentifikator und Referenzen stehen im Listeneintrag.                           |
-| Vergleich             | Zwei Nachrichten segmentweise gegenüberstellen, wahlweise nur die Unterschiede.                               |
-| CSV-Export            | Trefferliste und Segmentwerte als CSV mit Semikolon und UTF-8-BOM für Excel.                                  |
-| Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                                            |
-| Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                                             |
-| Rohdaten              | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                                                |
-| Lokale Verarbeitung   | Hochgeladene Daten bleiben im Browser und werden nicht an einen Server übertragen.                            |
+| Karte                     | Beschreibung                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Suche und Filter          | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
+| Große Datenmengen         | Die Trefferliste zeichnet nur den sichtbaren Ausschnitt und bleibt bei 50.000 Nachrichten flüssig.            |
+| Helles und dunkles Schema | Umschaltbar zwischen hell, dunkel und Systemeinstellung; beide Schemata erfüllen WCAG AA.                     |
+| Fachliche Kennungen       | Marktlokation, Zählpunkt, Prüfidentifikator und Referenzen stehen im Listeneintrag.                           |
+| Vergleich                 | Zwei Nachrichten segmentweise gegenüberstellen, wahlweise nur die Unterschiede.                               |
+| CSV-Export                | Trefferliste und Segmentwerte als CSV mit Semikolon und UTF-8-BOM für Excel.                                  |
+| Strukturierte Ansicht     | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                                            |
+| Mehrfachnachrichten       | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                                             |
+| Rohdaten                  | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                                                |
+| Lokale Verarbeitung       | Hochgeladene Daten bleiben im Browser und werden nicht an einen Server übertragen.                            |
 
 ## Starten
 
@@ -74,10 +75,14 @@ Build-Schritt.
 - [tests/render.test.js](tests/render.test.js) prüft, **dass** gezeichnet wird und **dass** die
   erwarteten Inhalte im Baum landen.
 - [tests/app.test.js](tests/app.test.js) prüft die Verdrahtung vom Ereignis bis in den Zustand:
-  Datei-Import, Auswahl mit Maus und Tastatur, Suche und Zurücksetzen.
+  Datei-Import, Auswahl mit Maus und Tastatur, Suche, Vergleich und Farbschema.
+- [tests/styles.test.js](tests/styles.test.js) rechnet die Kontrastverhältnisse beider
+  Farbschemata gegen die Schwellen der WCAG AA nach und hält die beiden Blöcke des dunklen
+  Schemas deckungsgleich.
 
-Die Abgrenzung: Struktur, Inhalt und Verhalten ja, Darstellung nein. Layout, Farben und
-Fokusdarstellung bleiben Sache des Browsers und werden dort geprüft. Die Attrappe ist bewusst
+Die Abgrenzung: Struktur, Inhalt und Verhalten ja, Aussehen nein. Layout, Schriftbild und
+Fokusdarstellung bleiben Sache des Browsers und werden dort geprüft; die Farbwerte selbst sind
+dagegen Text in `styles.css` und damit nachrechenbar. Die Attrappe ist bewusst
 streng — `append(null)` wirft, statt den Wert stillschweigend zu übergehen: genau diese Nachsicht
 würde die Laufzeitfehler verdecken, wegen derer es den Test gibt.
 
@@ -179,8 +184,6 @@ wirken.
   Fallback-Kette greift auf macOS und Linux (`DIN Alternate`, `Roboto`, `system-ui`), das Bild
   weicht dort aber ab. Für eine plattformgleiche Darstellung müsste eine Webfont-Datei
   mitgeliefert werden.
-- **Kein dunkles Farbschema.** Die Palette ist an das Corporate Design gebunden; eine dunkle
-  Variante ist eine Design-Entscheidung und bewusst nicht vorweggenommen.
 - **Sehr große Dateien.** Die Trefferliste zeichnet nur das Sichtfenster und trägt damit
   50.000 Datensätze flüssig. Das Einlesen selbst bleibt der teure Schritt: die Nutzlast jeder
   Nachricht wird beim Laden einmal geparst und indiziert, was bei 50.000 Datensätzen rund eine
