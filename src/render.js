@@ -26,11 +26,6 @@
     { value: 'raw', label: 'EDIFACT-Rohdaten' },
   ]);
 
-  /** Hinweis, wenn ein Code nicht in der hinterlegten Codeliste steht. */
-  const UNLISTED_CODE_TITLE =
-    'Der Code steht nicht in der hinterlegten Codeliste. Das heißt nicht, dass er ungültig ist — ' +
-    'die Tabellen sind kuratierte Teilmengen, und die EDI@Energy-eigenen Codes sind noch nicht erfasst.';
-
   /**
    * Baut eine Tab-Leiste nach dem ARIA-Tabs-Muster: rollende
    * Tabulator-Reihenfolge (nur der aktive Tab ist per Tab erreichbar), Rest
@@ -339,7 +334,7 @@
         error.tag ? ns.el('small', { text: error.tag }) : null,
         ns.el('span', {
           class: meaning?.name ? 'ack-error-name' : 'ack-error-name code-unlisted',
-          title: meaning?.name ? false : UNLISTED_CODE_TITLE,
+          title: meaning?.name ? false : ns.UNLISTED_CODE,
           text: meaning?.name ?? 'nicht hinterlegt',
         }),
       ]),
@@ -547,67 +542,20 @@
    * @param {string} query
    * @returns {HTMLElement}
    */
-  /**
-   * Loest einen Codewert in Klartext auf.
-   *
-   * Der Rohwert bleibt daneben stehen und kopierbar -- der Klartext tritt
-   * hinzu, er ersetzt nichts.
-   *
-   * @param {string|undefined} element Datenelement-Nummer.
-   * @param {string} value
-   * @returns {HTMLElement|null} Null, wenn keine Codeliste vorliegt: dann
-   *   gibt es keine Aussage zu treffen.
-   */
-  function codeText(element, value) {
-    const meaning = ns.codeMeaning(element, value);
-    if (!meaning) return null;
-
-    return meaning.name
-      ? ns.el('span', { class: 'code-meaning', text: meaning.name })
-      : ns.el('span', {
-          class: 'code-meaning code-unlisted',
-          title: UNLISTED_CODE_TITLE,
-          text: 'nicht hinterlegt',
-        });
-  }
+  /** Klasse je Zustand aus `ns.valueMeaning`. */
+  const MEANING_CLASSES = Object.freeze({
+    date: 'code-meaning',
+    'date-unlisted': 'code-meaning code-unlisted',
+    'date-invalid': 'code-meaning code-invalid',
+    code: 'code-meaning',
+    unlisted: 'code-meaning code-unlisted',
+  });
 
   /**
-   * Uebersetzt einen DTM-Wert in eine lesbare Datumsangabe.
+   * Zeichnet die Erlaeuterung zu einem Wert.
    *
-   * @param {string} value    Wert aus DE 2380.
-   * @param {string|undefined} format Formatkennzeichen aus DE 2379.
-   * @returns {HTMLElement|null}
-   */
-  function dateText(value, format) {
-    const decoded = ns.decodeDateTime(value, format);
-    if (!decoded) return null;
-
-    if (decoded.status === 'ok') {
-      return ns.el('span', { class: 'code-meaning', text: decoded.text });
-    }
-
-    if (decoded.status === 'unknown') {
-      return ns.el('span', {
-        class: 'code-meaning code-unlisted',
-        title:
-          'Für dieses Formatkennzeichen ist keine Lesart hinterlegt. Der Rohwert bleibt unverändert stehen.',
-        text: 'Format nicht hinterlegt',
-      });
-    }
-
-    return ns.el('span', {
-      class: 'code-meaning code-invalid',
-      title: decoded.error,
-      text: 'passt nicht zum Format',
-    });
-  }
-
-  /**
-   * Waehlt die Erlaeuterung zu einem Wert.
-   *
-   * DE 2380 traegt seine Lesart nicht in sich -- erst das Formatkennzeichen
-   * in DE 2379 macht daraus ein Datum. In C507 steht es immer als naechste
-   * Komponente.
+   * Was dort steht, entscheidet `ns.valueMeaning` -- dieselbe Funktion, die
+   * der CSV-Export benutzt. Hier bleibt nur die Frage, wie es aussieht.
    *
    * @param {{code: string}|null} definition
    * @param {string} value
@@ -616,8 +564,14 @@
    * @returns {HTMLElement|null}
    */
   function valueAnnotation(definition, value, siblings, component) {
-    if (definition?.code === '2380') return dateText(value, siblings[component + 1]);
-    return codeText(definition?.code, value);
+    const meaning = ns.valueMeaning(definition, value, siblings, component);
+    if (!meaning) return null;
+
+    return ns.el('span', {
+      class: MEANING_CLASSES[meaning.status] ?? 'code-meaning',
+      title: meaning.detail ?? false,
+      text: meaning.text,
+    });
   }
 
   function componentRow(tag, element, component, value, split, query, siblings) {
@@ -841,6 +795,13 @@
             'Nachricht (formatiert)',
             'Formatiert kopieren',
           ),
+          ns.el('button', {
+            class: 'button button-quiet button-small',
+            type: 'button',
+            dataset: { exportSegments: String(index) },
+            title: 'Alle Segmente dieser Nachricht als CSV-Datei speichern',
+            text: 'Segmente als CSV',
+          }),
         ]),
       ]),
       findingList(findingsFor(record, index), 'Befunde dieser Nachricht'),

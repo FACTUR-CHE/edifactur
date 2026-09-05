@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light" />
     <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
          schlaegt an, wenn die beiden auseinanderlaufen. -->
-    <meta name="application-version" content="1.0.10" />
+    <meta name="application-version" content="1.0.11" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -122,9 +122,19 @@
 
         <div class="summary">
           <p id="resultInfo" role="status"></p>
-          <button id="clearFilters" class="button button-quiet" type="button">
-            Filter zurücksetzen
-          </button>
+          <div class="summary-actions">
+            <button
+              id="exportList"
+              class="button button-quiet"
+              type="button"
+              title="Die gefilterte Trefferliste als CSV-Datei speichern"
+            >
+              Trefferliste als CSV
+            </button>
+            <button id="clearFilters" class="button button-quiet" type="button">
+              Filter zurücksetzen
+            </button>
+          </div>
         </div>
 
         <div class="filter-bar">
@@ -242,6 +252,7 @@
     <script src="src/codes.js"></script>
     <script src="src/format.js"></script>
     <script src="src/records.js"></script>
+    <script src="src/export.js"></script>
     <script src="src/dom.js"></script>
     <script src="src/render.js"></script>
     <script src="src/app.js"></script>

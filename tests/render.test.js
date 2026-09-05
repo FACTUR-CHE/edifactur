@@ -321,6 +321,15 @@ describe('Detailbereich zeichnet die aufbereiteten Inhalte', () => {
     assert.ok(tags.some((entry) => entry.includes('DEMO-MALO-0001')));
   });
 
+  it('bietet den CSV-Export der aktiven Nachricht an', () => {
+    const payload = "UNH+1+UTILMD:D:11A:UN'UNT+2+1'UNH+2+APERAK:D:07B:UN'UNT+2+2'";
+    const node = detail(recordOf(payload), { activeMessage: 1 });
+    const button = findNode(node, (entry) => entry.dataset.exportSegments !== undefined);
+
+    assert.ok(button, 'kein Export-Knopf');
+    assert.equal(button.dataset.exportSegments, '1');
+  });
+
   it('bietet die vorkommenden Segmenttypen mit Anzahl an', () => {
     const node = detail(recordOf("UNH+1+MSCONS:D:04B:UN'QTY+220:1'QTY+220:2'UNT+4+1'"));
     const chips = byClass(node, 'segment-chip');

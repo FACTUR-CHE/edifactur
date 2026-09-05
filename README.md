@@ -17,6 +17,7 @@ Verarbeitung findet ausschließlich im Browser statt.
 | --------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Suche und Filter      | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
 | Fachliche Kennungen   | Marktlokation, Zählpunkt, Prüfidentifikator und Referenzen stehen im Listeneintrag.                           |
+| CSV-Export            | Trefferliste und Segmentwerte als CSV mit Semikolon und UTF-8-BOM für Excel.                                  |
 | Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                                            |
 | Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                                             |
 | Rohdaten              | Die unveränderte EDIFACT-Nutzlast ist pro Nachricht einsehbar.                                                |
@@ -162,6 +163,10 @@ wirken.
   Variante ist eine Design-Entscheidung und bewusst nicht vorweggenommen.
 - **Sehr große Dateien.** Die Filterung läuft über einen vorberechneten Volltextindex und die
   Liste ist auf 250 Datensätze pro Seite begrenzt, es gibt aber kein Virtual Scrolling.
+- **CSV-Download über `file://`.** Der Export legt die Datei über ein Blob und einen
+  `download`-Link an. Das funktioniert in den gängigen Browsern auch beim Öffnen aus dem
+  Dateisystem, einzelne Konfigurationen unterbinden es jedoch ohne Fehlermeldung. Der Viewer weist
+  nach jedem Export darauf hin; bleibt der Download aus, hilft ein lokaler Webserver.
 
 ## Datenschutz und Daten
 

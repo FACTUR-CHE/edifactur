@@ -67,6 +67,7 @@
     'app',
     'resultInfo',
     'clearFilters',
+    'exportList',
     'search',
     'rangePanel',
     'rangeSummary',
@@ -457,6 +458,97 @@
   }
 
   /**
+   * Gibt Text als Datei heraus.
+   *
+   * Ueber ein Blob und einen `download`-Link, weil der Viewer sich per
+   * Doppelklick aus dem Dateisystem oeffnen lassen soll: unter `file://` gibt
+   * es keinen Server, der eine Datei ausliefern koennte.
+   *
+   * @param {string} text
+   * @param {string} fileName
+   * @returns {boolean} Ob der Download ausgeloest werden konnte.
+   */
+  function downloadText(text, fileName) {
+    if (typeof Blob !== 'function' || typeof URL?.createObjectURL !== 'function') return false;
+
+    try {
+      // charset im Typ, damit ein direkt geoeffnetes Blob nicht als
+      // Windows-1252 gelesen wird. Die BOM steht zusaetzlich im Text.
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      // Erst nach dem Klick, sonst ist die Quelle schon wieder weg.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Gibt eine CSV heraus und meldet das Ergebnis.
+   *
+   * Der Hinweis auf `file://` steht auch im Erfolgsfall: manche Browser
+   * verweigern den Download dort ohne Fehler, und ein stiller Fehlschlag
+   * saehe aus wie ein leerer Ordner ohne Grund.
+   *
+   * @param {string} text
+   * @param {string} subject Bezug fuer den Dateinamen.
+   * @param {string} label   Bezeichnung fuer die Rueckmeldung.
+   */
+  function exportCsv(text, subject, label) {
+    const fileName = ns.exportFileName(subject);
+
+    if (!downloadText(text, fileName)) {
+      showNotice(
+        `${label} konnte nicht gespeichert werden — dieser Browser erlaubt den Download nicht. Öffnen Sie den Viewer über einen lokalen Webserver.`,
+        'error',
+      );
+      return;
+    }
+
+    showNotice(
+      `${label} als ${fileName} gespeichert. Erscheint kein Download, verhindert ihn der Browser beim Öffnen über file:// — dann hilft ein lokaler Webserver.`,
+      'info',
+    );
+  }
+
+  /** Gibt die gefilterte Trefferliste heraus, nicht nur die sichtbare Seite. */
+  function exportRecordList() {
+    if (state.filtered.length === 0) {
+      showNotice('Die Trefferliste ist leer — es gibt nichts zu exportieren.', 'warning');
+      return;
+    }
+
+    exportCsv(
+      ns.recordListCsv(state.filtered),
+      'trefferliste',
+      `Trefferliste (${ns.formatCount(state.filtered.length)} Datensätze)`,
+    );
+  }
+
+  /**
+   * Gibt die Segmente einer Nachricht heraus.
+   *
+   * Immer die ganze Nachricht, auch bei gesetztem Segmentfilter -- wie die
+   * Kopierziele daneben.
+   *
+   * @param {number} index Position der Nachricht im Datensatz.
+   */
+  function exportSegments(index) {
+    const record = selectedRecord();
+    const message = record?.derived.messages[index];
+    if (!message) return;
+
+    const subject = `segmente-${record.source.messageID || record.id}-${index + 1}`;
+    exportCsv(ns.segmentCsv(message, index + 1), subject, `Segmente der Nachricht ${index + 1}`);
+  }
+
+  /**
    * Waehlt einen Datensatz anhand seiner Kennung aus und macht ihn sichtbar.
    *
    * @param {string} id
@@ -728,6 +820,8 @@
     });
   }
 
+  dom.exportList.addEventListener('click', exportRecordList);
+
   dom.clearFilters.addEventListener('click', () => {
     resetControls();
     resetDetailView();
@@ -771,6 +865,12 @@
     const jump = target.closest('[data-goto]');
     if (jump) {
       gotoRecord(jump.dataset.goto);
+      return;
+    }
+
+    const exportButton = target.closest('[data-export-segments]');
+    if (exportButton) {
+      exportSegments(Number(exportButton.dataset.exportSegments));
       return;
     }
 

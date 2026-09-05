@@ -19,6 +19,15 @@
 
   const LOCALE = 'de-DE';
 
+  /** Erlaeuterung zu einem Code, der nicht in den Tabellen steht. */
+  const UNLISTED_CODE =
+    'Der Code steht nicht in der hinterlegten Codeliste. Das heißt nicht, dass er ungültig ist — ' +
+    'die Tabellen sind kuratierte Teilmengen, und die EDI@Energy-eigenen Codes sind noch nicht erfasst.';
+
+  /** Erlaeuterung zu einem Formatkennzeichen ohne hinterlegte Lesart. */
+  const UNLISTED_FORMAT =
+    'Für dieses Formatkennzeichen ist keine Lesart hinterlegt. Der Rohwert bleibt unverändert stehen.';
+
   /**
    * ISO-8601-Form, wie das erwartete Datenformat sie vorgibt:
    * `2026-08-01`, optional mit Zeit und Zonenangabe.
@@ -464,6 +473,48 @@
       .join(between);
   }
 
+  /**
+   * Waehlt die Erlaeuterung zu einem Wert.
+   *
+   * Eine Stelle fuer eine Entscheidung, die an zwei Orten gebraucht wird: die
+   * Anzeige macht daraus einen Knoten mit Klasse und Titel, der CSV-Export
+   * eine Spalte. Liefe die Entscheidung zweimal, wuerde die Datei
+   * frueher oder spaeter etwas anderes behaupten als der Bildschirm.
+   *
+   * DE 2380 traegt seine Lesart nicht in sich -- erst das Formatkennzeichen
+   * in DE 2379 macht daraus ein Datum. In C507 steht es immer als naechste
+   * Komponente.
+   *
+   * @param {{code: string}|null} definition Datenelement laut segments.js.
+   * @param {string} value
+   * @param {string[]} siblings Komponenten desselben Datenelements.
+   * @param {number} component
+   * @returns {{status: string, text: string, detail?: string}|null}
+   *   `null`, wenn es nichts zu sagen gibt.
+   */
+  function valueMeaning(definition, value, siblings, component) {
+    if (definition?.code === '2380') {
+      const decoded = decodeDateTime(value, siblings[component + 1]);
+      if (!decoded) return null;
+      if (decoded.status === 'ok') return { status: 'date', text: decoded.text };
+      if (decoded.status === 'unknown') {
+        return {
+          status: 'date-unlisted',
+          text: 'Format nicht hinterlegt',
+          detail: UNLISTED_FORMAT,
+        };
+      }
+      return { status: 'date-invalid', text: 'passt nicht zum Format', detail: decoded.error };
+    }
+
+    const meaning = ns.codeMeaning(definition?.code, value);
+    if (!meaning) return null;
+
+    return meaning.name
+      ? { status: 'code', text: meaning.name }
+      : { status: 'unlisted', text: 'nicht hinterlegt', detail: UNLISTED_CODE };
+  }
+
   ns.PLACEHOLDER = PLACEHOLDER;
   ns.EMPTY_ELEMENT = EMPTY_ELEMENT;
   ns.parseTimestamp = parseTimestamp;
@@ -474,4 +525,6 @@
   ns.joinSegments = joinSegments;
   ns.DATE_FORMATS = DATE_FORMATS;
   ns.decodeDateTime = decodeDateTime;
+  ns.valueMeaning = valueMeaning;
+  ns.UNLISTED_CODE = UNLISTED_CODE;
 })((globalThis.EdifactExplorer ??= {}));

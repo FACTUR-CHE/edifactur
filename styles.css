@@ -490,6 +490,12 @@ pre {
   margin: 0 0 14px;
 }
 
+.summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .summary p {
   margin: 0;
   color: var(--muted);
