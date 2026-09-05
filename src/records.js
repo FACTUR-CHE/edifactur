@@ -650,6 +650,24 @@
     return Math.max(1, Math.ceil(total / pageSize));
   }
 
+  /**
+   * Bestimmt den Zielindex eines Tastenschritts in der Trefferliste.
+   *
+   * An den Enden wird nicht umgebrochen: aus "eine weiter" wuerde sonst
+   * unversehens ein Sprung ans andere Ende der Liste. Ohne Auswahl beginnt
+   * die Bewegung am Anfang.
+   *
+   * @param {number} current Aktueller Index, `-1` wenn nichts ausgewaehlt ist.
+   * @param {number} step
+   * @param {number} total
+   * @returns {number} Zielindex, `-1` bei leerer Liste.
+   */
+  function stepIndex(current, step, total) {
+    if (total <= 0) return -1;
+    if (current < 0) return 0;
+    return Math.min(Math.max(current + step, 0), total - 1);
+  }
+
   ns.isPlainRecord = isPlainRecord;
   ns.normalizeRecord = normalizeRecord;
   ns.normalizeRecords = normalizeRecords;
@@ -667,4 +685,5 @@
   ns.filterRecords = filterRecords;
   ns.clampPage = clampPage;
   ns.pageCount = pageCount;
+  ns.stepIndex = stepIndex;
 })((globalThis.EdifactExplorer ??= {}));

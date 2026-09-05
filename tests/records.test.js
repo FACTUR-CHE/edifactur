@@ -22,6 +22,7 @@ const {
   normalizeRecords,
   pageCount,
   parseQuery,
+  stepIndex,
   readIdentifiers,
 } = globalThis.EdifactExplorer;
 
@@ -471,6 +472,29 @@ describe('filterRecords mit Zeitraum', () => {
   it('zaehlt die Datensaetze ohne Zeitstempel', () => {
     assert.equal(countUndatedRecords(records), 2);
     assert.equal(countUndatedRecords([]), 0);
+  });
+});
+
+describe('stepIndex', () => {
+  it('geht einen Schritt vor und zurueck', () => {
+    assert.equal(stepIndex(0, 1, 5), 1);
+    assert.equal(stepIndex(3, -1, 5), 2);
+  });
+
+  it('bricht an den Enden nicht um', () => {
+    // Aus "eine weiter" wuerde sonst unversehens ein Sprung ans andere Ende.
+    assert.equal(stepIndex(4, 1, 5), 4);
+    assert.equal(stepIndex(0, -1, 5), 0);
+  });
+
+  it('beginnt ohne Auswahl am Anfang', () => {
+    assert.equal(stepIndex(-1, 1, 5), 0);
+    assert.equal(stepIndex(-1, -1, 5), 0);
+  });
+
+  it('meldet die leere Liste', () => {
+    assert.equal(stepIndex(-1, 1, 0), -1);
+    assert.equal(stepIndex(0, 1, 0), -1);
   });
 });
 

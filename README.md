@@ -37,6 +37,20 @@ Für die Weitergabe reicht es, das Projektverzeichnis vollständig zu kopieren. 
 Als sicheren Einstieg enthält [data/sample-messages.json](data/sample-messages.json) vollständig
 fiktive Beispiele für alle unterstützten Nachrichtenformate.
 
+### Tastenkürzel
+
+| Taste            | Wirkung                                                |
+| ---------------- | ------------------------------------------------------ |
+| `/`              | Fokus in das Suchfeld                                  |
+| `j` / `k`        | Nächster und vorheriger Datensatz                      |
+| `↑` / `↓`        | Dasselbe, solange der Fokus in der Trefferliste steht  |
+| `←` / `→`        | Zwischen den Reitern des Detailbereichs wechseln       |
+| `Esc`            | Eingabefenster schließen, im Suchfeld die Suche leeren |
+| `Strg` + `Enter` | Eingegebene Nachricht übernehmen                       |
+
+Während in einem Textfeld getippt wird, greifen die Kürzel nicht — außer `Esc`. Dieselbe Übersicht
+steht im Dialog **Über den Viewer**.
+
 ## Entwicklung
 
 ```bash

@@ -1365,6 +1365,44 @@ dialog::backdrop {
   background: var(--surface-sunken);
 }
 
+.about-shortcuts-title {
+  margin: 20px 0 8px;
+  font-size: 1rem;
+}
+
+/* Zwei Spalten aus Taste und Wirkung: die Kuerzel stehen untereinander und
+   sind damit ueberfliegbar. */
+.about-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 20px;
+  margin: 0;
+}
+
+.about-shortcuts > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.about-shortcuts dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+kbd {
+  display: inline-block;
+  min-inline-size: 18px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-field);
+  border-block-end-width: 2px;
+  background: var(--surface);
+  color: var(--brand-deep);
+  font: 700 12px var(--font-mono);
+  text-align: center;
+}
+
 .about-item dt {
   margin: 0 0 7px;
   color: var(--brand);
@@ -1449,6 +1487,10 @@ dialog::backdrop {
 
   .about-item {
     min-block-size: 0;
+  }
+
+  .about-shortcuts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

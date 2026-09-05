@@ -28,6 +28,19 @@
     { id: 'categoryFilter', field: 'messageCategory' },
   ]);
 
+  /**
+   * Tastenschritte in der Trefferliste.
+   *
+   * `j`/`k` gelten ueberall ausserhalb von Textfeldern, die Pfeiltasten nur
+   * innerhalb der Liste: sie global zu nehmen wuerde das Scrollen der Seite
+   * aushebeln, und ein Fenster, das sich nicht mehr rollen laesst, ist
+   * schlimmer als ein fehlendes Kuerzel.
+   */
+  const LIST_STEPS = Object.freeze({ j: 1, k: -1, ArrowDown: 1, ArrowUp: -1 });
+
+  /** Pfeiltasten wirken nur, wenn der Fokus schon in der Liste steht. */
+  const LIST_ONLY_KEYS = Object.freeze(['ArrowDown', 'ArrowUp']);
+
   /** Tastenschritte innerhalb einer Tab-Leiste. */
   const ARROW_STEPS = Object.freeze({
     ArrowRight: 1,
@@ -934,6 +947,104 @@
     const kind = list.dataset.tablist;
     tabs[next].click();
     dom.detail.querySelectorAll(`[data-tablist="${kind}"] [role="tab"]`)[next]?.focus();
+  });
+
+  // --- Tastenbedienung -----------------------------------------------------
+
+  /**
+   * Prueft, ob gerade Text eingegeben wird.
+   *
+   * Ohne diese Schranke wuerde ein `j` in der Suche als Sprungbefehl gelesen
+   * und im Feld nie ankommen.
+   *
+   * @param {EventTarget|null} node
+   * @returns {boolean}
+   */
+  function isTextEntry(node) {
+    if (!(node instanceof Element)) return false;
+    if (node.isContentEditable) return true;
+    return ['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName);
+  }
+
+  /** Zieht den Fokus auf den ausgewaehlten Listeneintrag. */
+  function focusSelectedRecord() {
+    // Der Fokuswechsel rollt den Eintrag ins Bild und laesst ihn vorlesen --
+    // beides waere sonst einzeln nachzubauen.
+    dom.recordList.querySelector('[aria-current="true"]')?.focus();
+  }
+
+  /**
+   * Waehlt den naechsten oder vorherigen Datensatz der Trefferliste.
+   *
+   * Ueber die Seitengrenze hinaus wird geblaettert: die Seiteneinteilung ist
+   * eine Frage der Darstellung, und an ihrem Rand haengen zu bleiben waere
+   * fuer die Anwenderin nicht zu erklaeren.
+   *
+   * @param {number} step
+   */
+  function moveSelection(step) {
+    if (state.filtered.length === 0) return;
+
+    const current = state.filtered.findIndex((record) => record.id === state.selectedId);
+    const next = ns.stepIndex(current, step, state.filtered.length);
+    if (next === current) {
+      focusSelectedRecord();
+      return;
+    }
+
+    state.selectedId = state.filtered[next].id;
+    resetDetailView();
+    state.page = Math.floor(next / PAGE_SIZE);
+    render();
+    focusSelectedRecord();
+  }
+
+  document.addEventListener('keydown', (event) => {
+    // Der Info-Dialog ist modal und bringt seine eigene Bedienung mit.
+    if (dom.aboutDialog.open) return;
+
+    const target = event.target;
+    const typing = isTextEntry(target);
+
+    if (event.key === 'Escape') {
+      // Die einzige Taste, die auch im Textfeld gilt: die Vollbild-Eingabe
+      // liesse sich sonst nur mit der Maus wieder schliessen.
+      if (!dom.entryMode.hidden) {
+        event.preventDefault();
+        closeEntryMode();
+        return;
+      }
+
+      if (target === dom.search && dom.search.value.length > 0) {
+        event.preventDefault();
+        dom.search.value = '';
+        updateQuery('');
+        resetDetailView();
+        applyFilters({ resetPage: true });
+      }
+      return;
+    }
+
+    if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+    // Vor dem ersten Import gibt es weder Suchfeld noch Liste zu bedienen.
+    if (dom.app.hidden) return;
+
+    if (event.key === '/') {
+      // Ohne preventDefault stuende das Zeichen anschliessend im Feld.
+      event.preventDefault();
+      dom.search.focus();
+      dom.search.select();
+      return;
+    }
+
+    const step = LIST_STEPS[event.key];
+    if (step === undefined) return;
+
+    const inList = target instanceof Node && dom.recordList.contains(target);
+    if (LIST_ONLY_KEYS.includes(event.key) && !inList) return;
+
+    event.preventDefault();
+    moveSelection(step);
   });
 
   // --- Info-Dialog ---------------------------------------------------------
