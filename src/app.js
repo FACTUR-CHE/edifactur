@@ -860,6 +860,11 @@
       state.selectedId = record.dataset.id;
       resetDetailView();
       render();
+      // `render` baut die Liste neu auf, der angeklickte Knopf ist danach
+      // fort und der Fokus faellt auf den Rumpf zurueck. Die Pfeiltasten
+      // rollten dann nur noch den Listenbereich, statt weiterzuwaehlen --
+      // wer eine Nachricht anklickt, arbeitet in der Liste weiter.
+      focusSelectedRecord();
     }
   });
 
