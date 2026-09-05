@@ -16,6 +16,7 @@ Verarbeitung findet ausschließlich im Browser statt.
 | Karte                 | Beschreibung                                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Suche und Filter      | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
+| Große Datenmengen     | Die Trefferliste zeichnet nur den sichtbaren Ausschnitt und bleibt bei 50.000 Nachrichten flüssig.            |
 | Fachliche Kennungen   | Marktlokation, Zählpunkt, Prüfidentifikator und Referenzen stehen im Listeneintrag.                           |
 | Vergleich             | Zwei Nachrichten segmentweise gegenüberstellen, wahlweise nur die Unterschiede.                               |
 | CSV-Export            | Trefferliste und Segmentwerte als CSV mit Semikolon und UTF-8-BOM für Excel.                                  |
@@ -180,8 +181,11 @@ wirken.
   mitgeliefert werden.
 - **Kein dunkles Farbschema.** Die Palette ist an das Corporate Design gebunden; eine dunkle
   Variante ist eine Design-Entscheidung und bewusst nicht vorweggenommen.
-- **Sehr große Dateien.** Die Filterung läuft über einen vorberechneten Volltextindex und die
-  Liste ist auf 250 Datensätze pro Seite begrenzt, es gibt aber kein Virtual Scrolling.
+- **Sehr große Dateien.** Die Trefferliste zeichnet nur das Sichtfenster und trägt damit
+  50.000 Datensätze flüssig. Das Einlesen selbst bleibt der teure Schritt: die Nutzlast jeder
+  Nachricht wird beim Laden einmal geparst und indiziert, was bei 50.000 Datensätzen rund eine
+  Sekunde kostet. Die Rollfläche ist so hoch wie die Liste lang ist; jenseits einiger
+  hunderttausend Zeilen stößt sie an die Höhengrenze der Browser.
 - **CSV-Download über `file://`.** Der Export legt die Datei über ein Blob und einen
   `download`-Link an. Das funktioniert in den gängigen Browsern auch beim Öffnen aus dem
   Dateisystem, einzelne Konfigurationen unterbinden es jedoch ohne Fehlermeldung. Der Viewer weist

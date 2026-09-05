@@ -10,7 +10,6 @@ import '../src/records.js';
 // Seiteneffekt geladen und legen ihre Namen im Namensraum ab.
 const {
   buildReferenceIndex,
-  clampPage,
   countUndatedRecords,
   highlightTerms,
   createRecordFromEdifact,
@@ -20,10 +19,10 @@ const {
   isPlainRecord,
   normalizeRecord,
   normalizeRecords,
-  pageCount,
   parseQuery,
   stepIndex,
   readIdentifiers,
+  visibleRange,
 } = globalThis.EdifactExplorer;
 
 /** @returns {object} Rohdatensatz wie in einer Exportdatei. */
@@ -498,30 +497,50 @@ describe('stepIndex', () => {
   });
 });
 
-describe('clampPage', () => {
-  it('begrenzt nach oben', () => {
-    assert.equal(clampPage(9, 300, 250), 1);
+describe('visibleRange', () => {
+  const range = (options) => visibleRange({ rowHeight: 100, total: 1000, overscan: 2, ...options });
+
+  it('zeichnet am Anfang das Fenster plus Streifen', () => {
+    // Sichthoehe 500 sind fuenf Zeilen, dazu zwei ueber und zwei unter dem
+    // Fenster -- ohne diesen Streifen waere der Rand beim Rollen kurz leer.
+    assert.deepEqual(range({ scrollTop: 0, viewportHeight: 500 }), {
+      start: 0,
+      end: 8,
+      offsetTop: 0,
+      totalHeight: 100000,
+    });
   });
 
-  it('begrenzt nach unten', () => {
-    // Regression: es gab nur eine obere Grenze (Math.min).
-    assert.equal(clampPage(-1, 300, 250), 0);
-    assert.equal(clampPage(-99, 0, 250), 0);
+  it('verschiebt das Fenster mit der Rollposition', () => {
+    const view = range({ scrollTop: 5000, viewportHeight: 500 });
+
+    assert.equal(view.start, 48);
+    assert.equal(view.end, 58);
+    assert.equal(view.offsetTop, 4800);
   });
 
-  it('laesst gueltige Seiten unveraendert', () => {
-    assert.equal(clampPage(1, 600, 250), 1);
-  });
-});
-
-describe('pageCount', () => {
-  it('liefert mindestens eine Seite', () => {
-    assert.equal(pageCount(0, 250), 1);
+  it('laeuft an den Enden nicht ueber', () => {
+    assert.equal(range({ scrollTop: -500, viewportHeight: 500 }).start, 0);
+    assert.equal(range({ scrollTop: 999999, viewportHeight: 500 }).end, 1000);
   });
 
-  it('rundet auf', () => {
-    assert.equal(pageCount(251, 250), 2);
-    assert.equal(pageCount(500, 250), 2);
+  it('haelt die Gesamthoehe unabhaengig vom Ausschnitt', () => {
+    // Der Rollbalken soll die wahre Laenge der Liste zeigen.
+    assert.equal(range({ scrollTop: 0, viewportHeight: 500 }).totalHeight, 100000);
+    assert.equal(range({ scrollTop: 90000, viewportHeight: 500 }).totalHeight, 100000);
+  });
+
+  it('zeichnet ohne Datensaetze und ohne Zeilenhoehe nichts', () => {
+    const empty = { start: 0, end: 0, offsetTop: 0, totalHeight: 0 };
+
+    assert.deepEqual(visibleRange({ rowHeight: 100, total: 0 }), empty);
+    assert.deepEqual(visibleRange({ rowHeight: 0, total: 10 }), empty);
+  });
+
+  it('zeichnet auch ohne bekannte Sichthoehe etwas', () => {
+    // Vor dem ersten Layout ist clientHeight null; eine leere Liste waere
+    // dann das Erste, was die Anwenderin saehe.
+    assert.ok(range({ scrollTop: 0, viewportHeight: 0 }).end > 0);
   });
 });
 

@@ -14,8 +14,15 @@
 (function (ns) {
   'use strict';
 
-  /** Datensaetze pro Seite. */
-  const PAGE_SIZE = 250;
+  /**
+   * Hoehe einer Listenzeile in Pixeln.
+   *
+   * Die Virtualisierung rechnet mit einer festen Zeilenhoehe: nur so laesst
+   * sich aus der Rollposition der sichtbare Ausschnitt bestimmen, ohne alle
+   * Zeilen zu zeichnen und zu messen. Der Wert wird als `--record-height` an
+   * die Liste gegeben, damit CSS und Rechnung nicht auseinanderlaufen.
+   */
+  const RECORD_HEIGHT = 112;
 
   /** Wartezeit, bevor eine Eingabe im Suchfeld einen Neuaufbau ausloest. */
   const SEARCH_DEBOUNCE_MS = 150;
@@ -129,8 +136,10 @@
     compare: null,
     /** Zeigt der Vergleich nur die Unterschiede? */
     onlyDifferences: false,
-    page: 0,
   };
+
+  /** Zuletzt gezeichneter Ausschnitt, um beim Rollen nicht umsonst zu zeichnen. */
+  let drawnWindow = { start: -1, end: -1 };
 
   /**
    * Setzt die Ansicht des Detailbereichs auf den Anfang zurueck.
@@ -654,35 +663,64 @@
 
     applyFilters({ resetPage: true });
 
-    // Der Zieldatensatz kann auf einer spaeteren Seite liegen. Ohne diesen
-    // Sprung stuende er im Detailbereich, waere in der Liste aber nicht zu
-    // sehen.
-    const index = state.filtered.findIndex((entry) => entry.id === id);
-    const page = index >= 0 ? Math.floor(index / PAGE_SIZE) : 0;
-    if (page !== state.page) {
-      state.page = page;
-      render();
-    }
+    // Der Zieldatensatz kann weit unten liegen. Ohne diesen Sprung stuende er
+    // im Detailbereich, waere in der Liste aber nicht zu sehen.
+    scrollIntoView(state.filtered.findIndex((entry) => entry.id === id));
+    renderListPane();
 
     // Der Detailbereich wurde neu aufgebaut, der geklickte Knoten existiert
     // nicht mehr. Der Fokus wandert deshalb auf den Listeneintrag.
     dom.recordList.querySelector('[aria-current="true"]')?.focus();
   }
 
-  function render() {
-    ns.renderResultInfo(dom.resultInfo, {
-      filtered: state.filtered.length,
-      total: state.records.length,
-      page: state.page,
-      pageSize: PAGE_SIZE,
+  /**
+   * Bestimmt den sichtbaren Ausschnitt aus Rollposition und Sichthoehe.
+   *
+   * @returns {object} Ergebnis von `visibleRange`.
+   */
+  function listWindow() {
+    return ns.visibleRange({
+      scrollTop: dom.recordList.scrollTop,
+      viewportHeight: dom.recordList.clientHeight,
+      rowHeight: RECORD_HEIGHT,
+      total: state.filtered.length,
     });
+  }
+
+  /** Zeichnet nur die Liste -- beim Rollen ist der Detailbereich unberuehrt. */
+  function renderListPane() {
+    const view = listWindow();
+    drawnWindow = view;
     ns.renderList(dom.recordList, {
       records: state.filtered,
       selectedId: state.selectedId,
       query: state.highlight,
-      page: state.page,
-      pageSize: PAGE_SIZE,
+      window: view,
     });
+  }
+
+  /**
+   * Rollt einen Datensatz in den sichtbaren Bereich.
+   *
+   * @param {number} index Platz in der gefilterten Liste.
+   */
+  function scrollIntoView(index) {
+    if (index < 0) return;
+
+    const top = index * RECORD_HEIGHT;
+    const view = dom.recordList;
+    if (top < view.scrollTop) view.scrollTop = top;
+    else if (top + RECORD_HEIGHT > view.scrollTop + view.clientHeight) {
+      view.scrollTop = top + RECORD_HEIGHT - view.clientHeight;
+    }
+  }
+
+  function render() {
+    ns.renderResultInfo(dom.resultInfo, {
+      filtered: state.filtered.length,
+      total: state.records.length,
+    });
+    renderListPane();
     renderDetailPane();
   }
 
@@ -692,12 +730,13 @@
    * @param {{resetPage?: boolean}} [options]
    */
   function applyFilters({ resetPage = false } = {}) {
-    if (resetPage) state.page = 0;
+    // Eine neue Treffermenge beginnt oben. Die alte Rollposition zeigte sonst
+    // mitten in eine Liste, die es so nicht mehr gibt.
+    if (resetPage) dom.recordList.scrollTop = 0;
 
     updateRangeHint();
 
     state.filtered = ns.filterRecords(state.records, readCriteria());
-    state.page = ns.clampPage(state.page, state.filtered.length, PAGE_SIZE);
 
     if (!state.filtered.some((record) => record.id === state.selectedId)) {
       state.selectedId = state.filtered[0]?.id ?? null;
@@ -776,7 +815,7 @@
     // Die gemerkte Nachricht stammt aus dem alten Bestand.
     state.compare = null;
     resetDetailView();
-    state.page = 0;
+    dom.recordList.scrollTop = 0;
 
     resetControls();
     resetManualInput();
@@ -811,7 +850,7 @@
     state.selectedId = record.id;
     state.activeTab = 'structured';
     resetDetailView();
-    state.page = 0;
+    dom.recordList.scrollTop = 0;
 
     fillFilterOptions();
     dom.fileName.textContent =
@@ -908,16 +947,28 @@
 
   // --- Liste und Seitennavigation -----------------------------------------
 
+  // Die Zeilenhoehe steht in app.js, damit Rechnung und Darstellung dieselbe
+  // Zahl benutzen. Das Stylesheet nimmt sie von hier entgegen.
+  dom.recordList.style.setProperty('--record-height', `${RECORD_HEIGHT}px`);
+
+  /**
+   * Zeichnet beim Rollen den neuen Ausschnitt.
+   *
+   * Nur wenn sich das Fenster tatsaechlich verschoben hat: sonst liefe bei
+   * jedem Rollereignis ein Neuaufbau, obwohl dieselben Zeilen zu sehen sind.
+   */
+  dom.recordList.addEventListener('scroll', () => {
+    const view = listWindow();
+    if (view.start === drawnWindow.start && view.end === drawnWindow.end) return;
+    renderListPane();
+  });
+
+  // Bei einer Groessenaenderung passt das Fenster nicht mehr zur Sichthoehe.
+  window.addEventListener('resize', () => renderListPane());
+
   dom.recordList.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
-
-    const pageButton = target.closest('[data-page]');
-    if (pageButton) {
-      state.page += pageButton.dataset.page === 'next' ? 1 : -1;
-      applyFilters();
-      return;
-    }
 
     const record = target.closest('[data-id]');
     if (record) {
@@ -1083,7 +1134,9 @@
 
     state.selectedId = state.filtered[next].id;
     resetDetailView();
-    state.page = Math.floor(next / PAGE_SIZE);
+    // Erst rollen, dann zeichnen: der Eintrag muss im Fenster liegen, sonst
+    // gibt es keinen Knopf, auf den der Fokus wandern koennte.
+    scrollIntoView(next);
     render();
     focusSelectedRecord();
   }

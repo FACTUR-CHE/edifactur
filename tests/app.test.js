@@ -48,6 +48,10 @@ const list = element('recordList');
 const detail = element('detail');
 const search = element('search');
 
+// Die Liste ist virtualisiert: ohne Sichthoehe zeichnete sie nur den
+// Ueberhang. 2000 Pixel fassen die 15 Datensaetze der Beispieldatei.
+list.clientHeight = 2000;
+
 // Wie in index.html: jedes Filterfeld traegt eine "Alle ..."-Option, die das
 // Neufuellen ueberlebt.
 for (const id of ['formatFilter', 'directionFilter', 'statusFilter', 'categoryFilter']) {
@@ -160,6 +164,60 @@ describe('Tastenwege', () => {
 
     assert.equal(press('k', document.body), true);
     assert.equal(selectedId(), 'demo-aperak-001');
+  });
+});
+
+describe('Virtualisierte Liste', () => {
+  /** Rollt die Liste und loest das Ereignis aus, wie der Browser es tut. */
+  const scrollTo = (top) => {
+    list.scrollTop = top;
+    list.dispatch('scroll');
+  };
+
+  it('zeichnet nur den sichtbaren Ausschnitt', () => {
+    // Sichthoehe auf zwei Zeilen: mehr als der Ausschnitt darf nicht im Baum
+    // stehen, sonst legte der Browser bei 50.000 Treffern alles an.
+    list.clientHeight = 224;
+    scrollTo(0);
+
+    assert.ok(records().length < 15, `${records().length} statt weniger als 15`);
+    assert.equal(records()[0].dataset.id, 'demo-aperak-001');
+  });
+
+  it('zeigt beim Rollen die Eintraege weiter unten', () => {
+    scrollTo(112 * 10);
+
+    const shown = records().map((entry) => entry.dataset.id);
+    assert.ok(shown.includes('demo-utilmd-001'), shown.join(', '));
+    assert.ok(!shown.includes('demo-aperak-001'), 'der Anfang steht noch im Baum');
+  });
+
+  it('bewegt die Auswahl auch ausserhalb des Fensters weiter', () => {
+    // Die Tastatur arbeitet auf der ganzen Trefferliste, nicht auf dem
+    // gezeichneten Ausschnitt: ein Schritt geht von der Auswahl aus, nicht
+    // vom Anfang des Fensters.
+    while (selectedId() !== 'demo-utilmd-batch-001') press('j', document.body);
+    scrollTo(0);
+
+    press('k', document.body);
+    assert.equal(selectedId(), 'demo-malo-negative-001');
+  });
+
+  it('rollt den gewaehlten Eintrag in den Blick', () => {
+    scrollTo(0);
+    assert.equal(list.scrollTop, 0);
+
+    while (selectedId() !== 'demo-utilmd-batch-001') press('j', document.body);
+
+    assert.ok(list.scrollTop > 0, 'die Liste ist nicht mitgerollt');
+    assert.ok(list.contains(document.activeElement), 'Fokus ausserhalb der Liste');
+  });
+
+  it('stellt die volle Sichthoehe wieder her', () => {
+    list.clientHeight = 2000;
+    scrollTo(0);
+
+    assert.equal(records().length, 15);
   });
 });
 

@@ -101,18 +101,12 @@
    * @param {object} counts
    * @param {number} counts.filtered
    * @param {number} counts.total
-   * @param {number} counts.page
-   * @param {number} counts.pageSize
    */
-  function renderResultInfo(node, { filtered, total, page, pageSize }) {
-    const pages = ns.pageCount(filtered, pageSize);
-    const paged = filtered > pageSize;
-
+  function renderResultInfo(node, { filtered, total }) {
     ns.clear(node);
     ns.append(node, [
       ns.el('strong', { text: ns.formatCount(filtered) }),
       ` von ${ns.formatCount(total)} Nachrichten`,
-      paged ? ` · Seite ${ns.formatCount(page + 1)} von ${ns.formatCount(pages)}` : null,
     ]);
   }
 
@@ -155,9 +149,12 @@
    * @param {object} record
    * @param {string} query
    * @param {boolean} isSelected
+   * @param {{index: number, total: number}} position Platz in der **ganzen**
+   *   Trefferliste. Gezeichnet wird nur ein Ausschnitt; ohne diese Angabe
+   *   meldete eine Vorlesesoftware "1 von 20" statt "4711 von 50.000".
    * @returns {HTMLElement}
    */
-  function recordButton(record, query, isSelected) {
+  function recordButton(record, query, isSelected, position) {
     const { source, derived } = record;
 
     const top = ns.el('span', { class: 'record-top' }, [
@@ -202,54 +199,30 @@
         type: 'button',
         dataset: { id: record.id },
         'aria-current': isSelected ? 'true' : false,
+        'aria-setsize': String(position.total),
+        'aria-posinset': String(position.index + 1),
       },
       [top, meta, identifiers],
     );
   }
 
   /**
-   * @param {object} options
-   * @param {number} options.start Index des ersten angezeigten Datensatzes.
-   * @param {number} options.shown
-   * @param {number} options.total
-   * @param {number} options.page
-   * @param {number} options.pages
-   * @returns {HTMLElement}
-   */
-  function pager({ start, shown, total, page, pages }) {
-    const range = `${ns.formatCount(start + 1)}–${ns.formatCount(start + shown)} von ${ns.formatCount(total)}`;
-
-    return ns.el('nav', { class: 'pager', 'aria-label': 'Seitennavigation' }, [
-      ns.el('button', {
-        class: 'button button-compact',
-        type: 'button',
-        dataset: { page: 'previous' },
-        disabled: page === 0,
-        text: '← Zurück',
-      }),
-      ns.el('span', { text: range }),
-      ns.el('button', {
-        class: 'button button-compact',
-        type: 'button',
-        dataset: { page: 'next' },
-        disabled: page >= pages - 1,
-        text: 'Weiter →',
-      }),
-    ]);
-  }
-
-  /**
-   * Zeichnet die Nachrichtenliste inklusive Seitennavigation.
+   * Zeichnet den sichtbaren Ausschnitt der Nachrichtenliste.
+   *
+   * Gezeichnet wird nur das Fenster aus `visibleRange`. Ein Platzhalter in
+   * voller Hoehe haelt den Rollbalken ehrlich, die Zeilen selbst werden um den
+   * Fensteranfang verschoben. Deshalb muessen alle Zeilen gleich hoch sein --
+   * `--record-height` in app.js und styles.css halten dieselbe Zahl.
    *
    * @param {HTMLElement} container
    * @param {object} options
-   * @param {object[]} options.records Gefilterte Datensaetze.
+   * @param {object[]} options.records Gefilterte Datensaetze, vollstaendig.
    * @param {string|null} options.selectedId
    * @param {string} options.query
-   * @param {number} options.page
-   * @param {number} options.pageSize
+   * @param {{start: number, end: number, offsetTop: number, totalHeight: number}}
+   *   options.window Ausschnitt aus `visibleRange`.
    */
-  function renderList(container, { records, selectedId, query, page, pageSize }) {
+  function renderList(container, { records, selectedId, query, window: view }) {
     ns.clear(container);
 
     if (records.length === 0) {
@@ -257,21 +230,29 @@
       return;
     }
 
-    const start = page * pageSize;
-    const shown = records.slice(start, start + pageSize);
-    const pages = ns.pageCount(records.length, pageSize);
-
-    const list = ns.el(
-      'ul',
-      { class: 'record-list' },
-      shown.map((record) => ns.el('li', {}, recordButton(record, query, record.id === selectedId))),
+    const rows = records.slice(view.start, view.end).map((record, offset) =>
+      ns.el(
+        'li',
+        {},
+        recordButton(record, query, record.id === selectedId, {
+          index: view.start + offset,
+          total: records.length,
+        }),
+      ),
     );
 
-    container.append(list);
-
-    if (records.length > pageSize) {
-      container.append(pager({ start, shown: shown.length, total: records.length, page, pages }));
-    }
+    container.append(
+      ns.el('div', { class: 'record-viewport', style: `block-size: ${view.totalHeight}px` }, [
+        ns.el(
+          'ul',
+          {
+            class: 'record-list',
+            style: `transform: translateY(${view.offsetTop}px)`,
+          },
+          rows,
+        ),
+      ]),
+    );
   }
 
   /**

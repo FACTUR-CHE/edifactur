@@ -11,6 +11,21 @@
  * erst im Browser.
  */
 
+/**
+ * Die Handvoll `style`-Zugriffe der Anwendung.
+ *
+ * Gesetzte Eigenschaften bleiben lesbar, damit ein Test sie pruefen kann.
+ */
+class StubStyle {
+  setProperty(name, value) {
+    this[name] = String(value);
+  }
+
+  getPropertyValue(name) {
+    return this[name] ?? '';
+  }
+}
+
 /** Wandelt `data-copy-label` in `copyLabel`, wie es `dataset` tut. */
 const camelCase = (name) => name.replace(/-(\w)/g, (_, letter) => letter.toUpperCase());
 
@@ -32,6 +47,12 @@ export class StubNode {
     this.value = '';
     this.hidden = false;
     this.placeholder = '';
+    // Rollbereich: die Virtualisierung rechnet mit beiden Werten. Ein Test
+    // setzt `clientHeight`, sonst bleibt das Fenster so klein wie im Browser
+    // vor dem ersten Layout.
+    this.scrollTop = 0;
+    this.clientHeight = 0;
+    this.style = new StubStyle();
   }
 
   /**
@@ -234,6 +255,16 @@ export function createDocument({ tags = {} } = {}) {
   attach(document.documentElement);
 
   globalThis.document = document;
+  // app.js horcht auf Groessenaenderungen des Fensters.
+  globalThis.window = {
+    listeners: {},
+    addEventListener(type, listener) {
+      (globalThis.window.listeners[type] ??= []).push(listener);
+    },
+    dispatch(type, event = {}) {
+      for (const listener of globalThis.window.listeners[type] ?? []) listener(event);
+    },
+  };
   // `instanceof Node` und `instanceof Element` fragt die Anwendung ab, bevor
   // sie ein Ereignisziel anfasst.
   globalThis.Node = StubNode;

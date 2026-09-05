@@ -627,27 +627,40 @@
   }
 
   /**
-   * Begrenzt eine Seitenzahl auf den gueltigen Bereich. Haelt die Invariante
-   * "0 <= page < pageCount" an einer Stelle fest, statt sie auf Aufrufer und
-   * disabled-Attribute zu verteilen.
+   * Bestimmt den Ausschnitt der Liste, der gezeichnet werden muss.
    *
-   * @param {number} page
-   * @param {number} total Anzahl gefilterter Datensaetze.
-   * @param {number} pageSize
-   * @returns {number}
+   * Gezeichnet wird nur das Sichtfenster: bei 50.000 Datensaetzen legte der
+   * Browser sonst hunderttausende Knoten an und haelt sie im Layout. Die
+   * Gesamthoehe bleibt trotzdem echt, damit der Rollbalken die wahre Laenge
+   * der Liste zeigt.
+   *
+   * Ueber und unter dem Fenster wird ein Streifen mitgezeichnet: ohne ihn
+   * waere beim Rollen der Rand fuer einen Moment leer.
+   *
+   * @param {object} options
+   * @param {number} [options.scrollTop]
+   * @param {number} [options.viewportHeight] Sichthoehe des Rollbereichs.
+   * @param {number} options.rowHeight  Feste Hoehe einer Zeile.
+   * @param {number} options.total      Anzahl gefilterter Datensaetze.
+   * @param {number} [options.overscan] Zeilen ueber und unter dem Fenster.
+   * @returns {{start: number, end: number, offsetTop: number, totalHeight: number}}
+   *   `end` ist ausschliessend.
    */
-  function clampPage(page, total, pageSize) {
-    const lastPage = Math.max(0, Math.ceil(total / pageSize) - 1);
-    return Math.min(Math.max(0, page), lastPage);
-  }
+  function visibleRange({ scrollTop = 0, viewportHeight = 0, rowHeight, total, overscan = 6 }) {
+    if (!(rowHeight > 0) || !(total > 0)) {
+      return { start: 0, end: 0, offsetTop: 0, totalHeight: 0 };
+    }
 
-  /**
-   * @param {number} total
-   * @param {number} pageSize
-   * @returns {number} Immer mindestens 1.
-   */
-  function pageCount(total, pageSize) {
-    return Math.max(1, Math.ceil(total / pageSize));
+    const first = Math.min(Math.floor(Math.max(0, scrollTop) / rowHeight), total - 1);
+    const visible = Math.ceil(Math.max(0, viewportHeight) / rowHeight);
+    const start = Math.max(0, first - overscan);
+
+    return {
+      start,
+      end: Math.min(total, first + visible + overscan + 1),
+      offsetTop: start * rowHeight,
+      totalHeight: total * rowHeight,
+    };
   }
 
   /**
@@ -683,7 +696,6 @@
   ns.countUndatedRecords = countUndatedRecords;
   ns.readIdentifiers = readIdentifiers;
   ns.filterRecords = filterRecords;
-  ns.clampPage = clampPage;
-  ns.pageCount = pageCount;
+  ns.visibleRange = visibleRange;
   ns.stepIndex = stepIndex;
 })((globalThis.EdifactExplorer ??= {}));

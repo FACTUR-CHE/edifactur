@@ -47,6 +47,14 @@ const textOf = (root) => root.textContent;
 const recordOf = (payload, overrides = {}) =>
   normalizeRecord({ ID: 'demo', payload: { payload }, ...overrides }, 'demo');
 
+/** @returns {object} Ausschnitt, der alle Datensaetze umfasst. */
+const wholeList = (total, rowHeight = 100) => ({
+  start: 0,
+  end: total,
+  offsetTop: 0,
+  totalHeight: total * rowHeight,
+});
+
 /** @returns {object} Gezeichneter Detailbereich. */
 function detail(record, options = {}) {
   const node = container();
@@ -93,10 +101,47 @@ describe('Rauchtest ueber die Beispieldatei', () => {
 
   it('zeichnet die Trefferliste', () => {
     const node = container();
-    renderList(node, { records, selectedId: records[0].id, query: '', page: 0, pageSize: 250 });
+    renderList(node, {
+      records,
+      selectedId: records[0].id,
+      query: '',
+      window: wholeList(records.length),
+    });
 
     assert.equal(byClass(node, 'record').length, records.length);
     assert.equal(byClass(node, 'record')[0].attributes['aria-current'], 'true');
+  });
+
+  it('zeichnet nur den sichtbaren Ausschnitt', () => {
+    const node = container();
+    renderList(node, {
+      records,
+      selectedId: null,
+      query: '',
+      window: { start: 5, end: 8, offsetTop: 500, totalHeight: 1500 },
+    });
+    const shown = byClass(node, 'record');
+
+    assert.equal(shown.length, 3);
+    assert.equal(shown[0].dataset.id, records[5].id);
+    // Die volle Hoehe bleibt stehen, damit der Rollbalken nicht luegt.
+    assert.equal(byClass(node, 'record-viewport')[0].attributes.style, 'block-size: 1500px');
+    assert.equal(byClass(node, 'record-list')[0].attributes.style, 'transform: translateY(500px)');
+  });
+
+  it('nennt jedem Eintrag seinen Platz in der ganzen Liste', () => {
+    // Sonst meldete eine Vorlesesoftware "1 von 3" statt "6 von 15".
+    const node = container();
+    renderList(node, {
+      records,
+      selectedId: null,
+      query: '',
+      window: { start: 5, end: 8, offsetTop: 500, totalHeight: 1500 },
+    });
+    const [first] = byClass(node, 'record');
+
+    assert.equal(first.attributes['aria-posinset'], '6');
+    assert.equal(first.attributes['aria-setsize'], String(records.length));
   });
 
   it('zeichnet jeden Datensatz in beiden Ansichten und fuer jede Nachricht', () => {
@@ -110,21 +155,18 @@ describe('Rauchtest ueber die Beispieldatei', () => {
     }
   });
 
-  it('zeichnet die Trefferzahl und die Seitennavigation', () => {
+  it('zeichnet die Trefferzahl', () => {
     const info = container();
-    renderResultInfo(info, { filtered: 300, total: 1000, page: 1, pageSize: 250 });
-    assert.equal(textOf(info), '300 von 1.000 Nachrichten · Seite 2 von 2');
+    renderResultInfo(info, { filtered: 300, total: 1000 });
 
-    const list = container();
-    renderList(list, { records, selectedId: null, query: '', page: 0, pageSize: 5 });
-    assert.equal(byClass(list, 'pager').length, 1);
+    assert.equal(textOf(info), '300 von 1.000 Nachrichten');
   });
 
   it('meldet den leeren Zustand statt zu werfen', () => {
     assert.equal(textOf(detail(null)), 'Wählen Sie eine Nachricht aus der Liste.');
 
     const list = container();
-    renderList(list, { records: [], selectedId: null, query: '', page: 0, pageSize: 250 });
+    renderList(list, { records: [], selectedId: null, query: '', window: wholeList(0) });
     assert.equal(textOf(list), 'Keine passenden Nachrichten.');
   });
 });
@@ -228,7 +270,7 @@ describe('Detailbereich zeichnet die aufbereiteten Inhalte', () => {
   it('zeigt die fachlichen Kennungen im Listeneintrag', () => {
     const record = recordOf("UNH+1+UTILMD:D:11A:UN'LOC+Z16+DEMO-MALO-0001'UNT+3+1'");
     const node = container();
-    renderList(node, { records: [record], selectedId: null, query: '', page: 0, pageSize: 250 });
+    renderList(node, { records: [record], selectedId: null, query: '', window: wholeList(1) });
 
     const tags = byClass(node, 'record-tag').map(textOf);
     assert.ok(tags.some((entry) => entry.includes('DEMO-MALO-0001')));
