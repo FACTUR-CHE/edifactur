@@ -5,93 +5,18 @@
  * im Baum landen. Layout, Farben und Fokusreihenfolge bleiben Sache des
  * Browsers -- dafuer waere eine Attrappe das falsche Werkzeug.
  *
- * Die Attrappe steht bewusst in dieser Datei: kein jsdom, keine
- * Laufzeitabhaengigkeit, kein Build-Schritt. Sie stellt genau die
- * DOM-Oberflaeche nach, die dom.js und render.js benutzen, und keine mehr.
+ * Die DOM-Attrappe liegt in dom-stub.js und wird mit app.test.js geteilt:
+ * kein jsdom, keine Laufzeitabhaengigkeit, kein Build-Schritt. Sie stellt
+ * genau die DOM-Oberflaeche nach, die die Anwendung benutzt, und keine mehr.
  */
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-// --- DOM-Attrappe ---------------------------------------------------------
+import { byClass, createDocument, nodesOf } from './dom-stub.js';
 
-/**
- * Ein Knoten. `dataset` ist ein einfaches Objekt, `children` haelt Knoten und
- * Zeichenketten in ihrer Reihenfolge.
- */
-class StubNode {
-  constructor(tag) {
-    this.tag = tag;
-    this.attributes = {};
-    this.dataset = {};
-    this.className = '';
-    this.children = [];
-  }
-
-  /**
-   * Streng mit Absicht: `null` und `undefined` werfen, statt uebergangen zu
-   * werden. Genau diese Nachsicht wuerde einen Spread ueber ein
-   * DocumentFragment verdecken -- den Fehler, der die Attrappe ueberhaupt
-   * noetig gemacht hat.
-   */
-  append(...children) {
-    for (const child of children) {
-      if (child === null || child === undefined) {
-        throw new TypeError(`append(${String(child)}) auf <${this.tag}>`);
-      }
-
-      if (child instanceof StubFragment) {
-        // Wie im Browser: das Fragment gibt seine Kinder ab und bleibt leer.
-        this.children.push(...child.children);
-        child.children = [];
-        continue;
-      }
-
-      if (child instanceof StubNode) {
-        this.children.push(child);
-        continue;
-      }
-
-      if (typeof child !== 'string' && typeof child !== 'number') {
-        throw new TypeError(`append(${typeof child}) auf <${this.tag}>`);
-      }
-
-      this.children.push(String(child));
-    }
-  }
-
-  replaceChildren(...children) {
-    this.children = [];
-    this.append(...children);
-  }
-
-  setAttribute(name, value) {
-    this.attributes[name] = String(value);
-  }
-
-  set textContent(value) {
-    this.children = [String(value)];
-  }
-
-  /** Der gesamte Text unterhalb des Knotens, wie `Node#textContent`. */
-  get textContent() {
-    return this.children
-      .map((child) => (typeof child === 'string' ? child : child.textContent))
-      .join('');
-  }
-}
-
-class StubFragment extends StubNode {
-  constructor() {
-    super('#fragment');
-  }
-}
-
-globalThis.document = {
-  createElement: (tag) => new StubNode(tag),
-  createDocumentFragment: () => new StubFragment(),
-};
+const document = createDocument();
 
 // Erst nach der Attrappe laden: die Quelldateien sind klassische Skripte, die
 // beim Laden ausgefuehrt werden und `document` erwarten.
@@ -108,24 +33,11 @@ const { el, normalizeRecord, normalizeRecords, renderDetail, renderList, renderR
 
 // --- Helfer ---------------------------------------------------------------
 
-/** @returns {StubNode} Ein leerer Zielknoten, wie ihn app.js uebergibt. */
-const container = () => new StubNode('div');
+/** @returns {object} Ein leerer Zielknoten, wie ihn app.js uebergibt. */
+const container = () => document.createElement('div');
 
-/** @returns {StubNode[]} Alle Knoten des Baums, den Wurzelknoten eingeschlossen. */
-function nodes(root) {
-  const found = [root];
-  for (const child of root.children) {
-    if (typeof child !== 'string') found.push(...nodes(child));
-  }
-  return found;
-}
-
-/** @returns {StubNode|undefined} */
-const findNode = (root, predicate) => nodes(root).find(predicate);
-
-/** @returns {StubNode[]} Alle Knoten mit dieser Klasse. */
-const byClass = (root, name) =>
-  nodes(root).filter((node) => node.className.split(' ').includes(name));
+/** @returns {object|undefined} */
+const findNode = (root, predicate) => nodesOf(root).find(predicate);
 
 /** @returns {string} Der Text, der im Browser zu lesen waere. */
 const textOf = (root) => root.textContent;
@@ -134,7 +46,7 @@ const textOf = (root) => root.textContent;
 const recordOf = (payload, overrides = {}) =>
   normalizeRecord({ ID: 'demo', payload: { payload }, ...overrides }, 'demo');
 
-/** @returns {StubNode} Gezeichneter Detailbereich. */
+/** @returns {object} Gezeichneter Detailbereich. */
 function detail(record, options = {}) {
   const node = container();
   renderDetail(node, { record, query: '', activeTab: 'structured', activeMessage: 0, ...options });
@@ -153,7 +65,7 @@ describe('DOM-Attrappe', () => {
 
   it('loest ein Fragment in seine Kinder auf', () => {
     const node = container();
-    const fragment = globalThis.document.createDocumentFragment();
+    const fragment = document.createDocumentFragment();
     fragment.append('a', el('b', { text: 'b' }));
     node.append(fragment);
 
@@ -387,7 +299,7 @@ describe('Detailbereich zeichnet die aufbereiteten Inhalte', () => {
     const node = detail(recordOf("UNH+1+UTILMD:D:11A:UN'BGM+E01+DOK-1+9'UNT+3+1'"), {
       query: 'DOK-1',
     });
-    const marks = nodes(node).filter((entry) => entry.tag === 'mark');
+    const marks = nodesOf(node).filter((entry) => entry.tag === 'mark');
 
     assert.ok(marks.length > 0, 'keine Hervorhebung');
     assert.ok(marks.every((mark) => textOf(mark).toLowerCase() === 'dok-1'));

@@ -43,7 +43,7 @@ fiktive Beispiele für alle unterstützten Nachrichtenformate.
 | ---------------- | ------------------------------------------------------ |
 | `/`              | Fokus in das Suchfeld                                  |
 | `j` / `k`        | Nächster und vorheriger Datensatz                      |
-| `↑` / `↓`        | Dasselbe, solange der Fokus in der Trefferliste steht  |
+| `↑` / `↓`        | Dasselbe, außerhalb des Detailbereichs                 |
 | `←` / `→`        | Zwischen den Reitern des Detailbereichs wechseln       |
 | `Esc`            | Eingabefenster schließen, im Suchfeld die Suche leeren |
 | `Strg` + `Enter` | Eingegebene Nachricht übernehmen                       |
@@ -64,14 +64,18 @@ npm run version:sync # schreibt die Version aus package.json nach index.html
 ```
 
 `npm test` braucht kein `npm install`, weil der Testrunner Teil von Node ist. Getestet wird die
-reine Logik — Parser, Datensatzmodell und Formatierung — und dazu die Darstellungsschicht als
-Rauchtest: [tests/render.test.js](tests/render.test.js) stellt in der Testdatei selbst so viel DOM
-nach, wie [src/dom.js](src/dom.js) und [src/render.js](src/render.js) benutzen, und prüft, **dass**
-gezeichnet wird und **dass** die erwarteten Inhalte im Baum landen. Kein jsdom, keine
-Laufzeitabhängigkeit, kein Build-Schritt.
+reine Logik — Parser, Datensatzmodell, Formatierung und CSV-Ausgabe — und dazu die
+browserabhängigen Schichten als Rauchtest. [tests/dom-stub.js](tests/dom-stub.js) stellt dafür
+genau so viel DOM nach, wie die Anwendung benutzt: kein jsdom, keine Laufzeitabhängigkeit, kein
+Build-Schritt.
 
-Die Abgrenzung: Struktur und Inhalt ja, Darstellung nein. Layout, Farben, Fokusreihenfolge und
-Tastaturbedienung bleiben Sache des Browsers und werden dort geprüft. Die Attrappe ist bewusst
+- [tests/render.test.js](tests/render.test.js) prüft, **dass** gezeichnet wird und **dass** die
+  erwarteten Inhalte im Baum landen.
+- [tests/app.test.js](tests/app.test.js) prüft die Verdrahtung vom Ereignis bis in den Zustand:
+  Datei-Import, Auswahl mit Maus und Tastatur, Suche und Zurücksetzen.
+
+Die Abgrenzung: Struktur, Inhalt und Verhalten ja, Darstellung nein. Layout, Farben und
+Fokusdarstellung bleiben Sache des Browsers und werden dort geprüft. Die Attrappe ist bewusst
 streng — `append(null)` wirft, statt den Wert stillschweigend zu übergehen: genau diese Nachsicht
 würde die Laufzeitfehler verdecken, wegen derer es den Test gibt.
 

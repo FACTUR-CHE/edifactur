@@ -28,18 +28,19 @@
     { id: 'categoryFilter', field: 'messageCategory' },
   ]);
 
-  /**
-   * Tastenschritte in der Trefferliste.
-   *
-   * `j`/`k` gelten ueberall ausserhalb von Textfeldern, die Pfeiltasten nur
-   * innerhalb der Liste: sie global zu nehmen wuerde das Scrollen der Seite
-   * aushebeln, und ein Fenster, das sich nicht mehr rollen laesst, ist
-   * schlimmer als ein fehlendes Kuerzel.
-   */
+  /** Tastenschritte in der Trefferliste. */
   const LIST_STEPS = Object.freeze({ j: 1, k: -1, ArrowDown: 1, ArrowUp: -1 });
 
-  /** Pfeiltasten wirken nur, wenn der Fokus schon in der Liste steht. */
-  const LIST_ONLY_KEYS = Object.freeze(['ArrowDown', 'ArrowUp']);
+  /**
+   * Pfeiltasten gehoeren dem Detailbereich, sobald der Fokus dort steht --
+   * eine lange Nachricht muss sich rollen lassen, und die Reiter folgen dem
+   * ARIA-Muster. Ueberall sonst waehlen sie den naechsten Datensatz.
+   *
+   * Zuerst galten sie nur innerhalb der Trefferliste. Das war zu eng: nach
+   * dem Zeichnen liegt der Fokus auf dem Seitenrumpf, und dort taten sie
+   * nichts -- also fast immer.
+   */
+  const ARROW_KEYS = Object.freeze(['ArrowDown', 'ArrowUp']);
 
   /** Tastenschritte innerhalb einer Tab-Leiste. */
   const ARROW_STEPS = Object.freeze({
@@ -1045,8 +1046,8 @@
     const step = LIST_STEPS[event.key];
     if (step === undefined) return;
 
-    const inList = target instanceof Node && dom.recordList.contains(target);
-    if (LIST_ONLY_KEYS.includes(event.key) && !inList) return;
+    const inDetail = target instanceof Node && dom.detail.contains(target);
+    if (ARROW_KEYS.includes(event.key) && inDetail) return;
 
     event.preventDefault();
     moveSelection(step);
