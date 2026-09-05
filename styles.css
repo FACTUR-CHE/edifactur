@@ -1152,6 +1152,104 @@ pre {
   font-size: 12px;
 }
 
+/* -- Vergleich ------------------------------------------------------------ */
+
+.diff-sides,
+.diff-summary {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.diff-side-label {
+  margin-inline-end: 4px;
+  color: var(--ink-soft);
+  font: 700 10px/1.6 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diff-summary {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* Zeichen, Wort, Tag, Werte. Die Unterscheidung haengt nicht an der Farbe:
+   das Zeichen und das Wort tragen sie ebenso. */
+.diff-row {
+  display: grid;
+  grid-template-columns: 18px 88px 52px minmax(0, 1fr);
+  gap: 10px;
+  padding: 6px 8px;
+  border-block-end: 1px solid var(--line-soft);
+  align-items: baseline;
+}
+
+.diff-mark {
+  font: 700 14px/1 var(--font-mono);
+  text-align: center;
+}
+
+.diff-state {
+  color: var(--ink-soft);
+  font: 700 10px/1.6 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.diff-tag {
+  color: var(--brand-deep);
+  font: 700 12px var(--font-mono);
+}
+
+.diff-values {
+  min-inline-size: 0;
+}
+
+.diff-line,
+.diff-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.diff-before {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+
+.diff-after {
+  font-weight: 700;
+}
+
+.diff-row-equal {
+  color: var(--muted);
+}
+
+.diff-row-added {
+  background: var(--surface-sunken);
+  border-inline-start: 3px solid var(--accent);
+}
+
+.diff-row-removed {
+  background: var(--surface-sunken);
+  border-inline-start: 3px solid var(--warning-ink);
+}
+
+.diff-row-changed {
+  background: var(--mark-surface);
+  border-inline-start: 3px solid var(--brand);
+}
+
+.diff-row-moved {
+  border-inline-start: 3px solid var(--line-field);
+}
+
 /* -- Segmentfilter -------------------------------------------------------- */
 
 .segment-filter {

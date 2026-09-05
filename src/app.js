@@ -121,6 +121,14 @@
     activeMessage: 0,
     /** @type {string[]} Segment-Tags der strukturierten Ansicht; leer = alle. */
     segmentFilter: [],
+    /**
+     * @type {{recordId: string, messageIndex: number}|null}
+     * Die zum Vergleich gemerkte Nachricht. Sie ueberlebt den Wechsel des
+     * Datensatzes -- genau dafuer ist sie da.
+     */
+    compare: null,
+    /** Zeigt der Vergleich nur die Unterschiede? */
+    onlyDifferences: false,
     page: 0,
   };
 
@@ -389,8 +397,61 @@
       activeTab: state.activeTab,
       activeMessage: state.activeMessage,
       segmentFilter: state.segmentFilter,
+      compare: comparePartner(record),
+      onlyDifferences: state.onlyDifferences,
       chain: referenceChain(record),
     });
+  }
+
+  /**
+   * Loest die gemerkte Nachricht zum Vergleich auf.
+   *
+   * @param {object|null} record Der offene Datensatz.
+   * @returns {{message: object|null, label: string, isCurrent: boolean}|null}
+   */
+  function comparePartner(record) {
+    if (!state.compare) return null;
+
+    const pinned = state.recordsById.get(state.compare.recordId);
+    // Nach einem neuen Import gibt es den gemerkten Datensatz nicht mehr.
+    if (!pinned) {
+      state.compare = null;
+      return null;
+    }
+
+    const { messageIndex } = state.compare;
+    return {
+      message: ns.currentMessage(pinned, messageIndex),
+      label: ns.messageLabel(pinned, messageIndex),
+      isCurrent: pinned.id === record?.id && messageIndex === state.activeMessage,
+    };
+  }
+
+  /**
+   * Merkt eine Nachricht zum Vergleich oder gibt sie wieder frei.
+   *
+   * @param {number} messageIndex
+   */
+  function toggleCompare(messageIndex) {
+    const record = selectedRecord();
+    if (!record) return;
+
+    const isPinned =
+      state.compare?.recordId === record.id && state.compare?.messageIndex === messageIndex;
+
+    if (isPinned) {
+      state.compare = null;
+      if (state.activeTab === 'diff') state.activeTab = 'structured';
+      renderDetailPane();
+      return;
+    }
+
+    state.compare = { recordId: record.id, messageIndex };
+    renderDetailPane();
+    showNotice(
+      `${ns.messageLabel(record, messageIndex)} gemerkt. Öffnen Sie eine andere Nachricht und wählen Sie den Reiter „Vergleich“.`,
+      'info',
+    );
   }
 
   /**
@@ -712,6 +773,8 @@
     setRecords(ns.normalizeRecords(valid));
     state.selectedId = state.records[0].id;
     state.activeTab = 'structured';
+    // Die gemerkte Nachricht stammt aus dem alten Bestand.
+    state.compare = null;
     resetDetailView();
     state.page = 0;
 
@@ -887,6 +950,26 @@
       return;
     }
 
+    if (target.closest('[data-compare-clear]')) {
+      state.compare = null;
+      state.activeTab = 'structured';
+      renderDetailPane();
+      return;
+    }
+
+    const compareButton = target.closest('[data-compare]');
+    if (compareButton) {
+      toggleCompare(Number(compareButton.dataset.compare));
+      return;
+    }
+
+    if (target.closest('[data-diff-only]')) {
+      state.onlyDifferences = !state.onlyDifferences;
+      renderDetailPane();
+      dom.detail.querySelector('[data-diff-only]')?.focus();
+      return;
+    }
+
     const exportButton = target.closest('[data-export-segments]');
     if (exportButton) {
       exportSegments(Number(exportButton.dataset.exportSegments));
@@ -913,7 +996,7 @@
 
     const viewTab = target.closest('[data-tab]');
     if (viewTab) {
-      state.activeTab = viewTab.dataset.tab === 'raw' ? 'raw' : 'structured';
+      state.activeTab = viewTab.dataset.tab;
       renderDetailPane();
       return;
     }

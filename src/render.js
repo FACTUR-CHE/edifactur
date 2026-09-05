@@ -26,6 +26,9 @@
     { value: 'raw', label: 'EDIFACT-Rohdaten' },
   ]);
 
+  /** Dritter Reiter, nur wenn eine Nachricht zum Vergleich gemerkt ist. */
+  const COMPARE_TAB = Object.freeze({ value: 'diff', label: 'Vergleich' });
+
   /**
    * Baut eine Tab-Leiste nach dem ARIA-Tabs-Muster: rollende
    * Tabulator-Reihenfolge (nur der aktive Tab ist per Tab erreichbar), Rest
@@ -735,6 +738,147 @@
   }
 
   /**
+   * Liest die gerade gezeigte Nachricht eines Datensatzes.
+   *
+   * @param {object} record
+   * @param {number} activeMessage
+   * @returns {object|null}
+   */
+  function currentMessage(record, activeMessage) {
+    const { messages } = record.derived;
+    if (messages.length === 0) return null;
+    return messages[Math.min(Math.max(0, activeMessage), messages.length - 1)] ?? null;
+  }
+
+  /**
+   * Benennt eine Nachricht so, dass man sie in der Liste wiederfindet.
+   *
+   * @param {object} record
+   * @param {number} index
+   * @returns {string}
+   */
+  function messageLabel(record, index) {
+    const name = record.source.messageID || record.id;
+    return record.derived.messages.length > 1 ? `${name}, Nachricht ${index + 1}` : name;
+  }
+
+  /** Zeichen und Wort je Zustand einer Vergleichszeile. */
+  const DIFF_STATES = Object.freeze({
+    equal: { mark: '=', label: 'gleich' },
+    changed: { mark: '≠', label: 'geändert' },
+    added: { mark: '+', label: 'neu' },
+    removed: { mark: '−', label: 'entfernt' },
+    moved: { mark: '↕', label: 'verschoben' },
+  });
+
+  /**
+   * Zeichnet eine Zeile des Vergleichs.
+   *
+   * Zeichen **und** Wort, nicht nur Farbe: der Unterschied muss auch dann
+   * ablesbar sein, wenn Farben nicht unterschieden werden koennen oder die
+   * Seite ausgedruckt wird.
+   *
+   * @param {object} row Zeile aus `diffMessages`.
+   * @returns {HTMLElement}
+   */
+  function diffRow(row) {
+    const state = DIFF_STATES[row.status];
+    const segment = row.right ?? row.left;
+
+    return ns.el('div', { class: `diff-row diff-row-${row.status}` }, [
+      ns.el('span', { class: 'diff-mark', 'aria-hidden': 'true', text: state.mark }),
+      ns.el('span', { class: 'diff-state', text: state.label }),
+      ns.el('code', { class: 'diff-tag', text: segment.tag }),
+      ns.el(
+        'div',
+        { class: 'diff-values' },
+        row.changes.length > 0
+          ? row.changes.map((change) =>
+              ns.el('p', { class: 'diff-change' }, [
+                ns.el('code', { class: 'de', text: change.position }),
+                ns.el('span', { class: 'diff-before', text: change.left || ns.EMPTY_ELEMENT }),
+                ns.el('span', { class: 'diff-arrow', 'aria-hidden': 'true', text: '→' }),
+                ns.el('span', { class: 'diff-after', text: change.right || ns.EMPTY_ELEMENT }),
+              ]),
+            )
+          : [ns.el('p', { class: 'diff-line', text: segment.raw })],
+      ),
+    ]);
+  }
+
+  /**
+   * Zeichnet den Vergleich zweier Nachrichten.
+   *
+   * @param {object} options
+   * @param {object} options.result Ergebnis von `diffMessages`.
+   * @param {string} options.leftLabel  Bezeichnung der gemerkten Nachricht.
+   * @param {string} options.rightLabel Bezeichnung der offenen Nachricht.
+   * @param {boolean} options.onlyDifferences
+   * @returns {Node[]}
+   */
+  function renderDiff({ result, leftLabel, rightLabel, onlyDifferences }) {
+    const { rows, summary } = result;
+    const shown = onlyDifferences ? rows.filter((row) => row.status !== 'equal') : rows;
+    const differences = rows.length - summary.equal;
+
+    const counts = Object.entries(DIFF_STATES)
+      .filter(([status]) => summary[status] > 0)
+      .map(([status, state]) => `${state.label}: ${ns.formatCount(summary[status])}`)
+      .join(' · ');
+
+    return [
+      ns.el('div', { class: 'section' }, [
+        ns.el('div', { class: 'section-head' }, [
+          ns.el('h3', { text: 'Vergleich' }),
+          ns.el('div', { class: 'section-actions' }, [
+            ns.el('button', {
+              class: 'button button-quiet button-small',
+              type: 'button',
+              dataset: { diffOnly: String(!onlyDifferences) },
+              'aria-pressed': String(onlyDifferences),
+              text: 'Nur Unterschiede',
+            }),
+            // Der Merk-Knopf steht in der strukturierten Ansicht. Ohne diesen
+            // hier muesste man erst den Reiter wechseln, um den Vergleich
+            // wieder loszuwerden.
+            ns.el('button', {
+              class: 'button button-quiet button-small',
+              type: 'button',
+              dataset: { compareClear: 'true' },
+              text: 'Vergleich aufheben',
+            }),
+          ]),
+        ]),
+        // Welche Nachricht welche Seite ist, muss dastehen: sonst liest man
+        // "entfernt" und weiss nicht, wo etwas fehlt.
+        ns.el('p', { class: 'diff-sides' }, [
+          ns.el('span', { class: 'diff-side-label', text: 'Gemerkt' }),
+          ` ${leftLabel} `,
+          ns.el('span', { class: 'diff-arrow', 'aria-hidden': 'true', text: '→' }),
+          ns.el('span', { class: 'diff-side-label', text: 'Offen' }),
+          ` ${rightLabel}`,
+        ]),
+        ns.el('p', { class: 'diff-summary', role: 'status' }, [
+          differences === 0
+            ? 'Kein Unterschied: beide Nachrichten sind segmentweise gleich.'
+            : `${ns.formatCount(differences)} von ${ns.formatCount(rows.length)} Segmenten unterscheiden sich. ${counts}`,
+        ]),
+        result.truncated
+          ? ns.el('p', {
+              class: 'notice notice-inline',
+              dataset: { variant: 'warning' },
+              text: 'Die Nachrichten sind zu lang für den genauen Vergleich; verglichen wurde Segment für Segment der Reihe nach.',
+            })
+          : null,
+        ...shown.map(diffRow),
+        shown.length === 0
+          ? ns.el('p', { class: 'empty', text: 'Keine Unterschiede zu zeigen.' })
+          : null,
+      ]),
+    ];
+  }
+
+  /**
    * Baut die strukturierte Ansicht: bei mehreren Nachrichten eine eigene
    * Tab-Leiste, darunter die Segmente der aktiven Nachricht.
    *
@@ -747,7 +891,7 @@
    *   vollstaendig.
    * @returns {Node[]}
    */
-  function renderStructured(record, { query, activeMessage, segmentFilter }) {
+  function renderStructured(record, { query, activeMessage, segmentFilter, compare }) {
     const { messages } = record.derived;
 
     if (messages.length === 0) {
@@ -802,6 +946,16 @@
             title: 'Alle Segmente dieser Nachricht als CSV-Datei speichern',
             text: 'Segmente als CSV',
           }),
+          ns.el('button', {
+            class: 'button button-quiet button-small',
+            type: 'button',
+            dataset: { compare: String(index) },
+            'aria-pressed': String(Boolean(compare?.isCurrent)),
+            title: compare?.isCurrent
+              ? 'Diese Nachricht nicht mehr zum Vergleich merken'
+              : 'Diese Nachricht merken und mit einer anderen vergleichen',
+            text: compare?.isCurrent ? 'Vergleich aufheben' : 'Für Vergleich merken',
+          }),
         ]),
       ]),
       findingList(findingsFor(record, index), 'Befunde dieser Nachricht'),
@@ -848,6 +1002,9 @@
    * @param {'structured'|'raw'} options.activeTab
    * @param {number} options.activeMessage
    * @param {string[]} [options.segmentFilter] Segment-Tags der Anzeige.
+   * @param {{message: object|null, label: string, isCurrent: boolean}|null}
+   *   [options.compare] Die zum Vergleich gemerkte Nachricht.
+   * @param {boolean} [options.onlyDifferences] Gleiche Segmente ausblenden.
    * @param {{target: object|null, sources: object[]}} [options.chain]
    *   Aufgeloeste Vorgangskette. Die Aufloesung liegt in app.js, damit diese
    *   Schicht keine Datensatzsuche kennt.
@@ -860,6 +1017,8 @@
       activeTab,
       activeMessage,
       segmentFilter = [],
+      compare = null,
+      onlyDifferences = false,
       chain = { target: null, sources: [] },
     },
   ) {
@@ -873,8 +1032,16 @@
     }
 
     const { source, derived } = record;
-    const isRaw = activeTab === 'raw';
-    const activeIndex = isRaw ? 1 : 0;
+    // Der Vergleichsreiter erscheint nur, wenn eine andere Nachricht gemerkt
+    // ist. Ein leerer Reiter waere eine Ansicht ohne Inhalt.
+    const canCompare = Boolean(compare?.message) && !compare.isCurrent;
+    const tabs = canCompare ? [...VIEW_TABS, COMPARE_TAB] : VIEW_TABS;
+    const view = activeTab === 'diff' && !canCompare ? 'structured' : activeTab;
+    const activeIndex = Math.max(
+      0,
+      tabs.findIndex((tab) => tab.value === view),
+    );
+    const isRaw = view === 'raw';
 
     const head = ns.el('div', { class: 'detail-head' }, [
       ns.el('div', {}, [
@@ -911,7 +1078,7 @@
       metaItem('Austauschweg', source.exchangeMethod, query),
     ]);
 
-    const bar = tablist(VIEW_TABS, {
+    const bar = tablist(tabs, {
       activeIndex,
       name: 'view',
       label: 'Ansicht der Nutzlast',
@@ -924,14 +1091,24 @@
     // Kopie einer einzelnen Nachricht wird aus ihren Segmenten
     // zusammengesetzt, kann also nicht zeichengleich sein -- deshalb steht
     // beides zur Verfuegung, an der Stelle, an der es jeweils passt.
-    const body = isRaw
-      ? [
-          ns.el('div', { class: 'section-actions section-actions-raw' }, [
-            copyButton(derived.payload, 'Nutzlast', 'Nutzlast kopieren'),
-          ]),
-          ns.el('pre', {}, ns.highlighted(derived.payload, query)),
-        ]
-      : renderStructured(record, { query, activeMessage, segmentFilter });
+    let body;
+    if (view === 'diff') {
+      body = renderDiff({
+        result: ns.diffMessages(compare.message, currentMessage(record, activeMessage)),
+        leftLabel: compare.label,
+        rightLabel: messageLabel(record, activeMessage),
+        onlyDifferences,
+      });
+    } else if (isRaw) {
+      body = [
+        ns.el('div', { class: 'section-actions section-actions-raw' }, [
+          copyButton(derived.payload, 'Nutzlast', 'Nutzlast kopieren'),
+        ]),
+        ns.el('pre', {}, ns.highlighted(derived.payload, query)),
+      ];
+    } else {
+      body = renderStructured(record, { query, activeMessage, segmentFilter, compare });
+    }
 
     ns.append(container, [
       head,
@@ -950,4 +1127,6 @@
   ns.renderResultInfo = renderResultInfo;
   ns.renderList = renderList;
   ns.renderDetail = renderDetail;
+  ns.messageLabel = messageLabel;
+  ns.currentMessage = currentMessage;
 })((globalThis.EdifactExplorer ??= {}));

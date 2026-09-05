@@ -25,6 +25,7 @@ await import('../src/segments.js');
 await import('../src/codes.js');
 await import('../src/format.js');
 await import('../src/records.js');
+await import('../src/diff.js');
 await import('../src/dom.js');
 await import('../src/render.js');
 
@@ -231,6 +232,75 @@ describe('Detailbereich zeichnet die aufbereiteten Inhalte', () => {
 
     const tags = byClass(node, 'record-tag').map(textOf);
     assert.ok(tags.some((entry) => entry.includes('DEMO-MALO-0001')));
+  });
+
+  it('zeigt den Vergleichsreiter erst mit gemerkter Nachricht', () => {
+    const record = recordOf("UNH+1+X'QTY+220:42'UNT+3+1'");
+    const tabs = (node) => nodesOf(node).filter((entry) => entry.dataset.tab !== undefined);
+
+    assert.deepEqual(
+      tabs(detail(record)).map((tab) => tab.dataset.tab),
+      ['structured', 'raw'],
+    );
+
+    const compare = {
+      message: recordOf("UNH+1+X'QTY+220:43'UNT+3+1'").derived.messages[0],
+      label: 'DEMO-1',
+      isCurrent: false,
+    };
+
+    assert.deepEqual(
+      tabs(detail(record, { compare })).map((tab) => tab.dataset.tab),
+      ['structured', 'raw', 'diff'],
+    );
+  });
+
+  it('zeichnet den Vergleich mit Zeichen und Wort je Zustand', () => {
+    const compare = {
+      message: recordOf("UNH+1+X'QTY+220:42'RFF+ACE:A'UNT+4+1'").derived.messages[0],
+      label: 'DEMO-1',
+      isCurrent: false,
+    };
+    const node = detail(recordOf("UNH+1+X'QTY+220:43'UNT+3+1'"), { compare, activeTab: 'diff' });
+    const text = textOf(node);
+
+    assert.equal(byClass(node, 'diff-row-changed').length > 0, true);
+    assert.equal(byClass(node, 'diff-row-removed').length, 1);
+    // Die Unterscheidung ruht nicht auf der Farbe.
+    assert.ok(text.includes('geändert'), 'Wort zum Zustand fehlt');
+    assert.ok(text.includes('entfernt'), 'Wort zum Zustand fehlt');
+    assert.ok(text.includes('42'), 'alter Wert fehlt');
+    assert.ok(text.includes('43'), 'neuer Wert fehlt');
+    // Beide Seiten sind benannt.
+    assert.ok(text.includes('DEMO-1'), 'gemerkte Nachricht nicht benannt');
+  });
+
+  it('zeigt auf Wunsch nur die Unterschiede', () => {
+    const compare = {
+      message: recordOf("UNH+1+X'QTY+220:42'UNT+3+1'").derived.messages[0],
+      label: 'DEMO-1',
+      isCurrent: false,
+    };
+    const options = { compare, activeTab: 'diff' };
+
+    assert.equal(
+      byClass(detail(recordOf("UNH+1+X'QTY+220:43'UNT+3+1'"), options), 'diff-row').length,
+      3,
+    );
+    assert.equal(
+      byClass(
+        detail(recordOf("UNH+1+X'QTY+220:43'UNT+3+1'"), { ...options, onlyDifferences: true }),
+        'diff-row',
+      ).length,
+      1,
+    );
+  });
+
+  it('faellt ohne gemerkte Nachricht auf die strukturierte Ansicht zurueck', () => {
+    const node = detail(recordOf("UNH+1+X'UNT+2+1'"), { activeTab: 'diff' });
+
+    assert.equal(byClass(node, 'diff-row').length, 0);
+    assert.ok(byClass(node, 'segment').length > 0, 'keine Segmente gezeichnet');
   });
 
   it('bietet den CSV-Export der aktiven Nachricht an', () => {

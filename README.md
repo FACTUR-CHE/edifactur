@@ -17,6 +17,7 @@ Verarbeitung findet ausschließlich im Browser statt.
 | --------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Suche und Filter      | Volltextsuche, Filter nach Format, Richtung, Status und Kategorie sowie nach Übertragungszeitraum (Ortszeit). |
 | Fachliche Kennungen   | Marktlokation, Zählpunkt, Prüfidentifikator und Referenzen stehen im Listeneintrag.                           |
+| Vergleich             | Zwei Nachrichten segmentweise gegenüberstellen, wahlweise nur die Unterschiede.                               |
 | CSV-Export            | Trefferliste und Segmentwerte als CSV mit Semikolon und UTF-8-BOM für Excel.                                  |
 | Strukturierte Ansicht | EDIFACT-Segmente werden mit Bezeichnung und Elementen dargestellt.                                            |
 | Mehrfachnachrichten   | Sammelnachrichten werden erkannt und einzeln navigierbar gemacht.                                             |

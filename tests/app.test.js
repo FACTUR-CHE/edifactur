@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { createDocument } from './dom-stub.js';
+import { byClass, createDocument } from './dom-stub.js';
 
 const document = createDocument({ tags: { search: 'input', messageInput: 'textarea' } });
 
@@ -38,6 +38,7 @@ await import('../src/codes.js');
 await import('../src/format.js');
 await import('../src/records.js');
 await import('../src/export.js');
+await import('../src/diff.js');
 await import('../src/dom.js');
 await import('../src/render.js');
 await import('../src/app.js');
@@ -159,6 +160,67 @@ describe('Tastenwege', () => {
 
     assert.equal(press('k', document.body), true);
     assert.equal(selectedId(), 'demo-aperak-001');
+  });
+});
+
+describe('Vergleich', () => {
+  /** @returns {StubNode|undefined} Der Merk-Knopf der offenen Nachricht. */
+  const pinButton = () => detail.querySelector('[data-compare]');
+
+  /**
+   * Waehlt einen Datensatz und darin die fachliche Nachricht.
+   *
+   * `derived.messages` fuehrt auch die Huellgruppen: Gruppe 0 ist der UNB-Kopf,
+   * die Nachricht mit UNH steht dahinter. Der Vergleich soll auf ihr laufen.
+   */
+  const select = (id) => {
+    list.dispatch('click', { target: records().find((entry) => entry.dataset.id === id) });
+    const tab = detail.querySelector('[data-message="1"]');
+    if (tab) detail.dispatch('click', { target: tab });
+  };
+
+  it('merkt die offene Nachricht', () => {
+    select('demo-utilmd-001');
+    // Der Klick laeuft ueber den Detailbereich: dort haengt die Delegation.
+    detail.dispatch('click', { target: pinButton() });
+
+    assert.equal(pinButton().attributes['aria-pressed'], 'true');
+    // Solange dieselbe Nachricht offen ist, gibt es nichts zu vergleichen.
+    assert.equal(Boolean(detail.querySelector('[data-tab="diff"]')), false);
+  });
+
+  it('bietet den Vergleich an, sobald eine andere Nachricht offen ist', () => {
+    select('demo-malo-positive-001');
+
+    assert.ok(detail.querySelector('[data-tab="diff"]'), 'kein Vergleichsreiter');
+  });
+
+  it('zeichnet den Vergleich und benennt beide Seiten', () => {
+    detail.dispatch('click', { target: detail.querySelector('[data-tab="diff"]') });
+
+    assert.ok(byClass(detail, 'diff-row').length > 0, 'keine Vergleichszeilen');
+    assert.ok(detail.textContent.includes('Gemerkt'), 'die Seiten sind nicht benannt');
+    // Beide Nachrichten tragen dasselbe LOC-Segment.
+    assert.ok(byClass(detail, 'diff-row-equal').length > 0, 'kein gleiches Segment erkannt');
+  });
+
+  it('blendet die gleichen Segmente auf Wunsch aus', () => {
+    const before = byClass(detail, 'diff-row').length;
+    detail.dispatch('click', { target: detail.querySelector('[data-diff-only]') });
+
+    assert.equal(detail.querySelector('[data-diff-only]').attributes['aria-pressed'], 'true');
+    assert.equal(byClass(detail, 'diff-row-equal').length, 0);
+    assert.ok(byClass(detail, 'diff-row').length < before, 'nichts ausgeblendet');
+  });
+
+  it('laesst sich aus der Vergleichsansicht heraus aufheben', () => {
+    // Der Merk-Knopf steht in der strukturierten Ansicht; von hier aus
+    // muesste man sonst erst den Reiter wechseln.
+    detail.dispatch('click', { target: detail.querySelector('[data-compare-clear]') });
+
+    assert.equal(Boolean(detail.querySelector('[data-tab="diff"]')), false);
+    assert.ok(byClass(detail, 'segment').length > 0, 'keine Segmente');
+    assert.equal(pinButton().attributes['aria-pressed'], 'false');
   });
 });
 
