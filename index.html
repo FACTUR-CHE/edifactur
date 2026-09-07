@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light" />
     <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
          schlaegt an, wenn die beiden auseinanderlaufen. -->
-    <meta name="application-version" content="1.0.17" />
+    <meta name="application-version" content="1.0.18" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -27,6 +27,7 @@
           <span class="brand-tagline">Gemeinsam <span>weiter</span></span>
           <span class="brand-mark" aria-hidden="true"></span>
         </div>
+        <h1 class="masthead-title">EDIFACT Explorer</h1>
         <div class="file-control">
           <label class="visually-hidden" for="themeSelect">Farbschema</label>
           <select id="themeSelect" class="theme-select">
@@ -55,9 +56,6 @@
             tabindex="-1"
           />
         </div>
-      </div>
-      <div class="masthead-band">
-        <h1 class="masthead-title">EDIFACT Explorer</h1>
       </div>
     </header>
 
@@ -126,75 +124,86 @@
       <section id="app" class="app" aria-label="Nachrichten" hidden>
         <h2 class="visually-hidden">Geladene Nachrichten</h2>
 
-        <div class="summary">
-          <p id="resultInfo" role="status"></p>
-          <div class="summary-actions">
-            <button
-              id="exportList"
-              class="button button-quiet"
-              type="button"
-              title="Die gefilterte Trefferliste als CSV-Datei speichern"
-            >
-              Trefferliste als CSV
-            </button>
-            <button id="clearFilters" class="button button-quiet" type="button">
-              Filter zurücksetzen
-            </button>
-          </div>
-        </div>
-
-        <div class="filter-bar">
-          <div class="filters">
-            <input
-              id="search"
-              type="search"
-              aria-label="Suche nach Volltext oder Feld"
-              placeholder="Suche: Volltext oder Feld, z. B. loc:DEMO-MALO-0001 seg:QTY format:UTILMD"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <select id="formatFilter" aria-label="Nachrichtenformat filtern">
-              <option value="">Alle Formate</option>
-            </select>
-            <select id="directionFilter" aria-label="Nachrichtenrichtung filtern">
-              <option value="">Alle Richtungen</option>
-            </select>
-            <select id="statusFilter" aria-label="Verarbeitungsstatus filtern">
-              <option value="">Alle Status</option>
-            </select>
-            <select id="categoryFilter" aria-label="Nachrichtenkategorie filtern">
-              <option value="">Alle Kategorien</option>
-            </select>
-          </div>
-
-          <details id="rangePanel" class="range-panel">
-            <summary id="rangeSummary" class="range-summary">Übertragungszeitraum</summary>
-            <div class="filters filters-range">
-              <p class="field">
-                <label class="field-label" for="rangePreset">Schnellauswahl</label>
-                <select id="rangePreset">
-                  <option value="">Alle Zeiträume</option>
-                  <option value="24h">Letzte 24 Stunden</option>
-                  <option value="7d">Letzte 7 Tage</option>
-                  <option value="30d">Letzte 30 Tage</option>
-                </select>
-              </p>
-              <p class="field">
-                <label class="field-label" for="rangeFrom">Von</label>
-                <input id="rangeFrom" type="date" />
-              </p>
-              <p class="field">
-                <label class="field-label" for="rangeTo">Bis</label>
-                <input id="rangeTo" type="date" />
-              </p>
-              <p class="range-zone">Grenzen in Ortszeit, jeweils einschließlich</p>
-              <p id="rangeHint" class="range-hint" hidden></p>
-            </div>
-          </details>
-        </div>
-
         <div class="workspace">
-          <nav id="recordList" class="list-pane" aria-label="Nachrichtenliste"></nav>
+          <!-- Filterkopf und Liste in einer Spalte: die Filter wirken nur auf
+               die Liste, und ueber dem Detailbereich bleibt dadurch die volle
+               Hoehe. `#recordList` bleibt eigener Rollbereich -- die
+               Virtualisierung rechnet mit dessen Rollposition. -->
+          <div class="list-column">
+            <div class="list-head">
+              <div class="filter-bar">
+                <input
+                  id="search"
+                  class="search-field"
+                  type="search"
+                  aria-label="Suche nach Volltext oder Feld"
+                  placeholder="Suche, z. B. loc:DEMO-MALO-0001 seg:QTY"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+
+                <div class="filters">
+                  <select id="formatFilter" aria-label="Nachrichtenformat filtern">
+                    <option value="">Alle Formate</option>
+                  </select>
+                  <select id="directionFilter" aria-label="Nachrichtenrichtung filtern">
+                    <option value="">Alle Richtungen</option>
+                  </select>
+                  <select id="statusFilter" aria-label="Verarbeitungsstatus filtern">
+                    <option value="">Alle Status</option>
+                  </select>
+                  <select id="categoryFilter" aria-label="Nachrichtenkategorie filtern">
+                    <option value="">Alle Kategorien</option>
+                  </select>
+                </div>
+
+                <details id="rangePanel" class="range-panel">
+                  <summary id="rangeSummary" class="range-summary">Übertragungszeitraum</summary>
+                  <div class="filters filters-range">
+                    <p class="field">
+                      <label class="field-label" for="rangePreset">Schnellauswahl</label>
+                      <select id="rangePreset">
+                        <option value="">Alle Zeiträume</option>
+                        <option value="24h">Letzte 24 Stunden</option>
+                        <option value="7d">Letzte 7 Tage</option>
+                        <option value="30d">Letzte 30 Tage</option>
+                      </select>
+                    </p>
+                    <p class="field">
+                      <label class="field-label" for="rangeFrom">Von</label>
+                      <input id="rangeFrom" type="date" />
+                    </p>
+                    <p class="field">
+                      <label class="field-label" for="rangeTo">Bis</label>
+                      <input id="rangeTo" type="date" />
+                    </p>
+                    <p class="range-zone">Grenzen in Ortszeit, jeweils einschließlich</p>
+                    <p id="rangeHint" class="range-hint" hidden></p>
+                  </div>
+                </details>
+              </div>
+
+              <div class="summary">
+                <p id="resultInfo" role="status"></p>
+                <div class="summary-actions">
+                  <button
+                    id="exportList"
+                    class="button button-small"
+                    type="button"
+                    title="Die gefilterte Trefferliste als CSV-Datei speichern"
+                  >
+                    Trefferliste als CSV
+                  </button>
+                  <button id="clearFilters" class="button button-small" type="button">
+                    Filter zurücksetzen
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <nav id="recordList" class="list-pane" aria-label="Nachrichtenliste"></nav>
+          </div>
+
           <article id="detail" class="detail-pane">
             <p class="empty">Wählen Sie eine Nachricht aus der Liste.</p>
           </article>

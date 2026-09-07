@@ -146,7 +146,6 @@
   /* -- Abstaende ---------------------------------------------------------- */
   --pad-masthead: clamp(20px, 11vw, 165px);
   --pad-page: clamp(16px, 3vw, 48px);
-  --band-height: 60px;
 }
 
 /* -- Dunkles Schema ------------------------------------------------------
@@ -296,35 +295,32 @@ pre {
 
 /* == 3. Layout ============================================================ */
 
+/* Marke, Seitentitel und Bedienelemente stehen in einer Zeile. Frueher waren
+   es zwei Baender uebereinander -- zusammen rund 175px, die der Arbeitsflaeche
+   fehlten, ohne dass sie etwas trugen. Vom blauen Band bleibt die Kante. */
 .masthead {
   flex: 0 0 auto;
+  border-block-end: 3px solid var(--brand);
   background: var(--surface);
 }
 
 .masthead-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 20px var(--pad-masthead) 14px;
+  gap: clamp(12px, 2vw, 26px);
+  padding: 9px var(--pad-masthead);
 }
 
-/* Traegt das blaue Band mit der Seitenueberschrift. Frueher war das ein
-   60px-Rahmen plus ::after-Pseudoelement -- der Titel stand damit im
-   Stylesheet statt im Dokument. */
-.masthead-band {
-  display: flex;
-  align-items: center;
-  min-block-size: var(--band-height);
-  padding: 8px var(--pad-masthead);
-  background: var(--brand);
-}
-
+/* Steht jetzt auf hellem Grund neben der Marke statt in Weiss auf blauem
+   Band; der Strich links trennt Titel und Marke. */
 .masthead-title {
   margin: 0;
-  color: var(--on-brand);
+  padding-inline-start: clamp(12px, 2vw, 26px);
+  border-inline-start: 1px solid var(--line);
+  color: var(--brand);
   font: 300 21px/1.2 var(--font-sans);
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .page {
@@ -336,7 +332,7 @@ pre {
   max-inline-size: 1680px;
   min-block-size: 0;
   margin-inline: auto;
-  padding: 20px var(--pad-page) 34px;
+  padding: 20px var(--pad-page);
 }
 
 .app {
@@ -364,9 +360,30 @@ pre {
   box-shadow: 0 12px 35px rgb(0 85 143 / 9%);
 }
 
-.list-pane {
+/* Traegt den Filterkopf und darunter die Liste. Der Kopf gehoert zur Spalte,
+   nicht zur Seite: er filtert allein diese Liste, und der Detailbereich
+   beginnt dadurch an der Oberkante der Arbeitsflaeche. */
+.list-column {
+  display: flex;
+  flex-direction: column;
   min-block-size: 0;
   border-inline-end: 1px solid var(--line);
+}
+
+/* Bleibt in voller Hoehe stehen; gerollt wird allein die Liste darunter. Ein
+   Kopf mit `position: sticky` innerhalb der Liste taete es auch, wuerde aber
+   deren Rollhoehe verfaelschen -- daraus leitet die Virtualisierung die
+   sichtbaren Zeilen ab. */
+.list-head {
+  flex: 0 0 auto;
+  padding: 12px 14px;
+  border-block-end: 1px solid var(--line);
+  background: var(--surface-sunken);
+}
+
+.list-pane {
+  flex: 1 1 auto;
+  min-block-size: 0;
   overflow: auto;
 }
 
@@ -380,23 +397,28 @@ pre {
 
 /* -- Marke --------------------------------------------------------------- */
 
+/* Auf reichlich die Haelfte verkleinert, seit die Marke sich die Kopfzeile
+   mit Titel und Bedienelementen teilt. Die Groessenverhaeltnisse der Sperrung
+   bleiben gewahrt: der Einzug der Zeile richtet sich weiter am zweiten
+   Buchstaben des Wortzeichens aus. */
 .brand {
   position: relative;
-  padding: 2px 52px 10px 0;
+  flex: 0 0 auto;
+  padding-inline-end: 26px;
 }
 
 .brand-name {
   display: block;
   color: var(--wordmark);
-  font: 300 49px/1 var(--font-sans);
+  font: 300 28px/1 var(--font-sans);
   letter-spacing: 0.045em;
 }
 
 .brand-tagline {
   display: block;
-  margin: 2px 0 0 91px;
+  margin: 1px 0 0 52px;
   color: var(--wordmark-soft);
-  font: 300 16px/1 var(--font-sans);
+  font: 300 11px/1 var(--font-sans);
   letter-spacing: 0.06em;
 }
 
@@ -407,17 +429,20 @@ pre {
 .brand-mark {
   position: absolute;
   inset-block-start: 0;
-  inset-inline-end: 7px;
-  inline-size: 31px;
-  block-size: 42px;
+  inset-inline-end: 4px;
+  inline-size: 18px;
+  block-size: 24px;
   background: linear-gradient(135deg, var(--blue-200) 0 33%, var(--brand) 34%);
   clip-path: polygon(34% 0, 100% 0, 100% 75%, 65% 100%, 65% 28%, 0 28%);
 }
 
 /* -- Dateisteuerung ------------------------------------------------------ */
 
+/* `margin-inline-start: auto` statt `space-between` auf der Kopfzeile:
+   zwischen Marke und Titel soll keine Luecke aufgehen, nur davor. */
 .file-control {
   display: flex;
+  margin-inline-start: auto;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
@@ -622,12 +647,16 @@ pre {
 
 /* -- Trefferzeile und Filter --------------------------------------------- */
 
+/* Sitzt zwischen Filtern und Liste: erst die Bedingung, dann wie viele sie
+   trifft, dann die Treffer. In einer 350px-Spalte bricht die Zeile um. */
 .summary {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
-  margin: 0 0 14px;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 14px;
 }
 
 .summary-actions {
@@ -649,26 +678,28 @@ pre {
    den Auswahlfeldern in denselben Spuren, nicht in einem eigenen Kasten. */
 .filter-bar {
   display: grid;
-  gap: 10px;
-  margin-block-end: 18px;
-}
-
-/* Fuenf Spuren fuer fuenf Bedienelemente. Das Suchfeld ist ueber die
-   2fr-Spur breiter, nicht ueber grid-column: span 2 -- damit waeren es sechs
-   Spalteneinheiten in fuenf Spuren und der letzte Filter wuerde umbrechen. */
-.filters {
-  display: grid;
-  grid-template-columns: 2fr repeat(4, minmax(120px, 1fr));
   gap: 9px;
 }
 
+/* Zwei Spuren. Die Listenspalte ist zwischen 350 und gut 600 Pixel breit --
+   vier Auswahlfelder nebeneinander waeren darin nicht mehr lesbar. Das
+   Suchfeld braucht ohnehin die volle Breite und steht deshalb ausserhalb
+   dieses Rasters. */
+.filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.search-field,
 .filters input,
 .filters select {
   inline-size: 100%;
-  padding: 11px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--line-field);
   background: var(--surface);
   color: var(--ink);
+  font-size: 14px;
 }
 
 /* -- Zeitraumfilter ------------------------------------------------------- */
@@ -754,15 +785,17 @@ pre {
   text-transform: uppercase;
 }
 
-/* Fuellt die beiden freien Spuren rechts und beantwortet die Frage, die ein
-   Datumsfeld sonst offen laesst: nach welcher Uhr wird gefiltert. */
-.range-zone {
-  grid-column: 4 / -1;
-  margin: 0;
+/* Die Schnellauswahl ueber beide Spuren, Von und Bis nebeneinander -- zwei
+   halbe Datumsfelder sind noch bedienbar, zwei viertel nicht mehr. */
+.filters-range > .field:first-child {
+  grid-column: span 2;
+}
 
-  /* Feldpolsterung plus Rahmen: der Hinweis sitzt damit auf der Schriftlinie
-     der Eingabefelder und nicht auf deren Unterkante. */
-  padding-block-end: 12px;
+/* Beantwortet die Frage, die ein Datumsfeld sonst offen laesst: nach welcher
+   Uhr wird gefiltert. Steht in eigener Zeile unter den Feldern. */
+.range-zone {
+  grid-column: 1 / -1;
+  margin: 0;
   color: var(--ink-soft);
   font-size: 0.85rem;
 }
@@ -1664,30 +1697,15 @@ kbd {
     overflow: auto;
   }
 
+  /* Umbruch statt eigener Spalte: die Bedienelemente ruecken unter Marke und
+     Titel, sobald die Zeile nicht mehr reicht. */
   .masthead-inner {
-    align-items: start;
-    flex-direction: column;
+    flex-wrap: wrap;
   }
 
   .file-control {
     justify-content: flex-start;
-  }
-
-  /* Hier ist span 2 richtig: zwei Spuren, das Suchfeld nimmt die erste
-     Zeile, die vier Filter fuellen die beiden folgenden. */
-  .filters {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .filters > input {
-    grid-column: span 2;
-  }
-
-  /* Die Schnellauswahl ueber die volle Breite, Von und Bis nebeneinander --
-     zwei halbe Datumsfelder sind noch bedienbar, ein Viertel nicht mehr. */
-  .filters-range > .field:first-child,
-  .range-zone {
-    grid-column: span 2;
+    margin-inline-start: 0;
   }
 
   .workspace {
@@ -1695,10 +1713,13 @@ kbd {
     min-block-size: 670px;
   }
 
-  .list-pane {
-    max-block-size: 45vh;
+  .list-column {
     border-inline-end: 0;
     border-block-end: 1px solid var(--line);
+  }
+
+  .list-pane {
+    max-block-size: 45vh;
   }
 
   .meta {
