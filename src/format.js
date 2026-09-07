@@ -104,6 +104,36 @@
   }
 
   /**
+   * Fasst aufeinanderfolgende Nachrichtennummern zu Laeufen zusammen.
+   *
+   * Aus 43 Nummern wird "1-43", aus [16, 30] werden "17" und "31". Eine
+   * Aufzaehlung von dreiundvierzig Zahlen liest niemand; ein Lauf sagt
+   * dasselbe in zwei Zahlen.
+   *
+   * Herein kommen Indizes ab null, heraus gehen Nummern ab eins -- so sind
+   * die Nachrichten im Detailbereich beschriftet. Jeder Lauf behaelt seinen
+   * ersten Index, damit die Darstellung daraus eine Sprungmarke machen kann.
+   *
+   * @param {number[]} indexes Aufsteigend.
+   * @returns {{label: string, index: number}[]}
+   */
+  function messageRuns(indexes) {
+    /** @type {{start: number, end: number}[]} */
+    const runs = [];
+
+    for (const index of indexes) {
+      const last = runs.at(-1);
+      if (last !== undefined && index === last.end + 1) last.end = index;
+      else runs.push({ start: index, end: index });
+    }
+
+    return runs.map(({ start, end }) => ({
+      index: start,
+      label: start === end ? String(start + 1) : `${start + 1}–${end + 1}`,
+    }));
+  }
+
+  /**
    * Zerlegt `text` in Treffer- und Nicht-Treffer-Abschnitte.
    *
    * Die Suche laeuft ueber String#indexOf, nicht ueber einen aus der Eingabe
@@ -515,6 +545,7 @@
       : { status: 'unlisted', text: 'nicht hinterlegt', detail: UNLISTED_CODE };
   }
 
+  ns.messageRuns = messageRuns;
   ns.PLACEHOLDER = PLACEHOLDER;
   ns.EMPTY_ELEMENT = EMPTY_ELEMENT;
   ns.parseTimestamp = parseTimestamp;

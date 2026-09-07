@@ -340,6 +340,68 @@
   }
 
   /**
+   * Benennt die Nachrichten einer Quittungsgruppe als Sprungmarken.
+   *
+   * Ein Lauf wird ein Knopf, der auf seine erste Nachricht fuehrt --
+   * `data-message` ist dasselbe Attribut, das die Reiterleiste darunter
+   * benutzt, die Verdrahtung im Anwendungsmodul gilt also mit.
+   *
+   * @param {number[]} indexes
+   * @returns {HTMLElement}
+   */
+  function acknowledgementMessages(indexes) {
+    return ns.el('p', { class: 'ack-messages' }, [
+      ns.el('span', { class: 'ack-messages-label', text: 'Nachricht' }),
+      ...ns.messageRuns(indexes).map((run) =>
+        ns.el('button', {
+          class: 'ack-message',
+          type: 'button',
+          dataset: { message: String(run.index) },
+          title: `Zu Nachricht ${run.index + 1} springen`,
+          text: run.label,
+        }),
+      ),
+    ]);
+  }
+
+  /** Zeichnet eine Quittungsgruppe als Karte. */
+  function acknowledgementCard(group, { withMessages }) {
+    return ns.el('div', { class: group.rejected ? 'ack ack-rejected' : 'ack ack-accepted' }, [
+      ns.el('p', { class: 'ack-head' }, [
+        ns.el('strong', { text: group.type }),
+        ' · ',
+        group.rejected ? 'Abgelehnt' : 'Anerkannt, ohne Fehlermeldung',
+      ]),
+      withMessages ? acknowledgementMessages(group.messageIndexes) : null,
+      group.errors.length > 0
+        ? ns.el(
+            'ul',
+            { class: 'ack-errors', 'aria-label': 'Gemeldete Fehler' },
+            group.errors.map(acknowledgementError),
+          )
+        : null,
+    ]);
+  }
+
+  /**
+   * Zeichnet eine Gruppe, die nichts zu melden hat, als eine Zeile.
+   *
+   * Eine Anerkennung ohne Fehlermeldung traegt keine Angabe ausser der, dass
+   * es sie gibt. Vierzig davon nebeneinander sind vierzig Karten mit
+   * demselben Satz. Die Zahl steht in der Zeile, die Nummern stehen darunter,
+   * sobald man sie sehen will -- weggenommen ist nichts.
+   */
+  function acknowledgementRollup(group) {
+    return ns.el('details', { class: 'ack ack-accepted ack-rollup' }, [
+      ns.el('summary', { class: 'ack-rollup-summary' }, [
+        ns.el('strong', { text: ns.formatCount(group.messageIndexes.length) }),
+        ` ${group.type} anerkannt, ohne Fehlermeldung`,
+      ]),
+      acknowledgementMessages(group.messageIndexes),
+    ]);
+  }
+
+  /**
    * Fasst die Quittungsnachrichten eines Datensatzes oben zusammen.
    *
    * Der Ablehnungsgrund ist der einzige Grund, ein APERAK zu oeffnen. Er darf
@@ -348,6 +410,12 @@
    * Annahme und Ablehnung sind nicht allein an der Farbe zu unterscheiden --
    * der Zustand steht als Wort daneben.
    *
+   * Eine Sammelnachricht quittiert jede enthaltene Nachricht einzeln. Gleich
+   * aussehende Quittungen werden deshalb zu einer Karte zusammengefasst, und
+   * die Ablehnungen stehen vor den Anerkennungen: sie sind der Grund, den
+   * Datensatz zu oeffnen. Bilanziert wird nur, wenn es mehr als eine Quittung
+   * gibt -- bei einer einzelnen Nachricht bleibt die Ansicht, wie sie war.
+   *
    * @param {object} record
    * @returns {HTMLElement|null} Null, wenn keine Quittungsnachricht vorliegt.
    */
@@ -355,26 +423,48 @@
     const summaries = record.derived.acknowledgements ?? [];
     if (summaries.length === 0) return null;
 
-    return ns.el(
-      'div',
-      { class: 'section' },
-      summaries.map((summary) =>
-        ns.el('div', { class: summary.rejected ? 'ack ack-rejected' : 'ack ack-accepted' }, [
-          ns.el('p', { class: 'ack-head' }, [
-            ns.el('strong', { text: summary.type }),
-            ' · ',
-            summary.rejected ? 'Abgelehnt' : 'Anerkannt, ohne Fehlermeldung',
-          ]),
-          summary.errors.length > 0
-            ? ns.el(
-                'ul',
-                { class: 'ack-errors', 'aria-label': 'Gemeldete Fehler' },
-                summary.errors.map(acknowledgementError),
-              )
-            : null,
-        ]),
+    const groups = ns.groupAcknowledgements(summaries);
+    const single = summaries.length === 1;
+    const rejected = groups.filter((group) => group.rejected);
+    const accepted = groups.filter((group) => !group.rejected);
+
+    return ns.el('div', { class: 'section' }, [
+      single ? null : acknowledgementBalance(summaries, rejected),
+      ...rejected.map((group) => acknowledgementCard(group, { withMessages: !single })),
+      ...accepted.map((group) =>
+        // Zusammengeklappt nur, wo es etwas zusammenzuklappen gibt. Eine
+        // einzelne Anerkennung hinter einem Aufklapper zu verstecken waere
+        // ein Klick fuer nichts.
+        group.messageIndexes.length > 1 && group.errors.length === 0
+          ? acknowledgementRollup(group)
+          : acknowledgementCard(group, { withMessages: !single }),
       ),
-    );
+    ]);
+  }
+
+  /**
+   * Nennt oben, ueber wie viele Quittungen in welchem Zustand man blickt.
+   *
+   * Die Aufteilung nach Zustand steht nur da, wo beide vorkommen. Kommt nur
+   * einer vor, nennt ihn die Karte darunter ohnehin, und "43 Quittungen · 43
+   * anerkannt" waere dieselbe Zahl zweimal.
+   *
+   * @param {object[]} summaries
+   * @param {object[]} rejectedGroups
+   * @returns {HTMLElement}
+   */
+  function acknowledgementBalance(summaries, rejectedGroups) {
+    const rejected = rejectedGroups.reduce((sum, group) => sum + group.messageIndexes.length, 0);
+    const accepted = summaries.length - rejected;
+    const mixed = rejected > 0 && accepted > 0;
+
+    return ns.el('p', { class: 'ack-balance' }, [
+      ns.el('strong', { text: ns.formatCount(summaries.length) }),
+      ' Quittungen',
+      mixed
+        ? ` · ${ns.formatCount(accepted)} anerkannt · ${ns.formatCount(rejected)} abgelehnt`
+        : null,
+    ]);
   }
 
   /**

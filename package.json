@@ -1,6 +1,6 @@
 {
   "name": "edifact-explorer",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "private": true,
   "description": "Browserbasierter Viewer für JSON-Exporte mit EDIFACT-Nutzlasten.",
   "license": "MIT",

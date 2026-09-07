@@ -12,6 +12,7 @@ const {
   checkCharacterSet,
   checkCounters,
   collectFindings,
+  groupAcknowledgements,
   hasUnaHeader,
   parseEdifact,
   readDelimiters,
@@ -704,5 +705,126 @@ describe('readAcknowledgement', () => {
     const result = ack("UNH+1+APERAK:D:07B:UN:2.1i'ERC+Z01'UNT+3+1'");
 
     assert.equal(result.errors[0].code, 'Z01');
+  });
+});
+
+describe('groupAcknowledgements', () => {
+  /** Eine Anerkennung ohne Fehlermeldung. */
+  const accepted = (messageIndex, extra = {}) => ({
+    type: 'APERAK',
+    errors: [],
+    actions: [],
+    rejected: false,
+    messageIndex,
+    ...extra,
+  });
+
+  /** Eine Ablehnung mit einem Fehler und optionalem Freitext. */
+  const rejected = (messageIndex, code, text = '') => ({
+    type: 'APERAK',
+    errors: [
+      {
+        element: '9321',
+        code,
+        texts: text ? [{ qualifier: 'ABO', text }] : [],
+      },
+    ],
+    actions: [],
+    rejected: true,
+    messageIndex,
+  });
+
+  it('fasst gleiche Anerkennungen zu einer Gruppe', () => {
+    const groups = groupAcknowledgements([accepted(1), accepted(2), accepted(3)]);
+
+    assert.equal(groups.length, 1);
+    assert.deepEqual(groups[0].messageIndexes, [1, 2, 3]);
+  });
+
+  it('fasst Ablehnungen mit demselben Fehlerbild zusammen', () => {
+    const groups = groupAcknowledgements([
+      rejected(1, 'Z29', 'Pruefidentifikator nicht vereinbart'),
+      rejected(2, 'Z29', 'Pruefidentifikator nicht vereinbart'),
+    ]);
+
+    assert.equal(groups.length, 1);
+    assert.deepEqual(groups[0].messageIndexes, [1, 2]);
+  });
+
+  it('trennt Ablehnungen mit verschiedenem Freitext', () => {
+    // Der Text ist die Angabe, um die es geht -- unterscheidet er sich,
+    // unterscheiden sich die Karten und duerfen nicht verschmelzen.
+    const groups = groupAcknowledgements([
+      rejected(1, 'Z29', 'Marktlokation DEMO-MALO-0001'),
+      rejected(2, 'Z29', 'Marktlokation DEMO-MALO-0002'),
+    ]);
+
+    assert.equal(groups.length, 2);
+  });
+
+  it('trennt Ablehnung von Anerkennung', () => {
+    const groups = groupAcknowledgements([accepted(1), rejected(2, 'Z29'), accepted(3)]);
+
+    assert.equal(groups.length, 2);
+    assert.deepEqual(groups[0].messageIndexes, [1, 3]);
+    assert.equal(groups[1].rejected, true);
+  });
+
+  it('trennt nach Nachrichtentyp', () => {
+    const groups = groupAcknowledgements([accepted(1), accepted(2, { type: 'CONTRL' })]);
+
+    assert.equal(groups.length, 2);
+  });
+
+  it('gruppiert ohne Ruecksicht auf actions', () => {
+    // `actions` fliesst in `rejected` ein, wird aber nicht gezeichnet. Zwei
+    // gleich aussehende Karten duerfen deswegen nicht auseinanderfallen.
+    const groups = groupAcknowledgements([
+      accepted(1, { actions: ['7'] }),
+      accepted(2, { actions: ['29'] }),
+    ]);
+
+    assert.equal(groups.length, 1);
+    assert.deepEqual(groups[0].messageIndexes, [1, 2]);
+  });
+
+  it('verliert keine Quittung', () => {
+    // Der Bestand bleibt: zusammengefasst wird die Darstellung, nicht die
+    // Menge. Sonst waere eine Quittung stillschweigend verschwunden.
+    const summaries = [
+      accepted(1),
+      rejected(2, 'Z29', 'a'),
+      accepted(3),
+      rejected(4, 'Z29', 'b'),
+      rejected(5, 'Z29', 'a'),
+    ];
+    const groups = groupAcknowledgements(summaries);
+    const counted = groups.reduce((sum, group) => sum + group.messageIndexes.length, 0);
+
+    assert.equal(counted, summaries.length);
+    assert.deepEqual(
+      groups.flatMap((group) => group.messageIndexes).sort((a, b) => a - b),
+      [1, 2, 3, 4, 5],
+    );
+  });
+
+  it('haelt die Reihenfolge des ersten Auftretens', () => {
+    const groups = groupAcknowledgements([rejected(1, 'Z29'), accepted(2), rejected(3, 'Z29')]);
+
+    assert.equal(groups[0].rejected, true);
+    assert.deepEqual(groups[0].messageIndexes, [1, 3]);
+    assert.equal(groups[1].rejected, false);
+  });
+
+  it('fuehrt die Nachrichtennummer nicht doppelt', () => {
+    // `messageIndexes` ist die einzige Quelle; ein zurueckgebliebenes
+    // `messageIndex` waere eine zweite, die auseinanderlaufen kann.
+    const [group] = groupAcknowledgements([accepted(1), accepted(2)]);
+
+    assert.equal('messageIndex' in group, false);
+  });
+
+  it('liefert bei leerer Eingabe keine Gruppe', () => {
+    assert.deepEqual(groupAcknowledgements([]), []);
   });
 });

@@ -653,6 +653,68 @@
   }
 
   /**
+   * Beschreibt eine Quittung durch das, was von ihr zu sehen ist.
+   *
+   * Gruppiert wird nach dieser Beschreibung, und sie nennt deshalb genau die
+   * Angaben, die die Darstellung zeichnet: Typ, Zustand und die gemeldeten
+   * Fehler mit ihren Texten. `actions` steht nicht darin -- daraus entsteht
+   * `rejected`, gezeigt wird es nicht, und zwei gleich aussehende Quittungen
+   * duerften nicht auseinanderfallen, weil sich ein Dienstcode unterscheidet.
+   *
+   * @param {object} summary
+   * @returns {string}
+   */
+  function acknowledgementSignature(summary) {
+    return JSON.stringify([
+      summary.type,
+      summary.rejected,
+      summary.errors.map((error) => [
+        error.element,
+        error.code,
+        error.tag ?? '',
+        error.texts.map((entry) => [entry.qualifier, entry.text]),
+      ]),
+    ]);
+  }
+
+  /**
+   * Fasst gleich aussehende Quittungen zusammen.
+   *
+   * Eine Sammelnachricht traegt eine Quittung je enthaltener Nachricht. Sind
+   * sie gleich -- 43 Anerkennungen ohne Fehlermeldung, oder 43 Ablehnungen aus
+   * demselben Grund -- dann sagt die dreiundvierzigste Karte nichts, was die
+   * erste nicht schon gesagt hat.
+   *
+   * Zusammengefasst wird nur die Darstellung, nicht der Bestand: jede Quittung
+   * bleibt ueber `messageIndexes` einzeln benannt, und die Summe der Gruppen
+   * ist die Zahl der Quittungen.
+   *
+   * Die Reihenfolge folgt dem ersten Auftreten. Eine Gruppe steht damit dort,
+   * wo die erste Quittung darin gestanden haette.
+   *
+   * @param {object[]} summaries Quittungen mit `messageIndex`.
+   * @returns {object[]} Je Gruppe eine Quittung mit `messageIndexes`.
+   */
+  function groupAcknowledgements(summaries) {
+    const groups = new Map();
+
+    for (const summary of summaries) {
+      const key = acknowledgementSignature(summary);
+      const group = groups.get(key);
+
+      if (group) {
+        group.messageIndexes.push(summary.messageIndex);
+        continue;
+      }
+
+      const { messageIndex, ...rest } = summary;
+      groups.set(key, { ...rest, messageIndexes: [messageIndex] });
+    }
+
+    return [...groups.values()];
+  }
+
+  /**
    * Sammelt alle Pruefbefunde einer Nutzlast.
    *
    * Einziger Einstieg fuer die Datensatzschicht -- neue Pruefungen werden hier
@@ -684,4 +746,5 @@
   ns.readInterchangeHeader = readInterchangeHeader;
   ns.readMessageHeader = readMessageHeader;
   ns.readAcknowledgement = readAcknowledgement;
+  ns.groupAcknowledgements = groupAcknowledgements;
 })((globalThis.EdifactExplorer ??= {}));

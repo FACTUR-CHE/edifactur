@@ -420,7 +420,16 @@
         // Gilt fuer geladene und fuer eingeklebte Nachrichten gleichermassen,
         // weil createRecordFromEdifact ueber diese Funktion laeuft.
         interchange: ns.readInterchangeHeader(messages),
-        acknowledgements: messages.map(ns.readAcknowledgement).filter(Boolean),
+        // Die Nachrichtennummer kommt mit: bei einer Sammelnachricht ist sie
+        // das einzige, was eine Quittung von der naechsten unterscheidet.
+        // Vorher fiel sie durch `filter` weg, und eine Ablehnung liess sich
+        // keiner der enthaltenen Nachrichten zuordnen.
+        acknowledgements: messages
+          .map((message, index) => {
+            const summary = ns.readAcknowledgement(message);
+            return summary === null ? null : { ...summary, messageIndex: index };
+          })
+          .filter(Boolean),
         // Einmal beim Aufbau, nicht bei jedem Zeichnen der Liste.
         identifiers: readIdentifiers(messages, messageId),
         findings: ns.collectFindings(messages),

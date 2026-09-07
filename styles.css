@@ -1069,6 +1069,21 @@ pre {
 
 /* -- Quittungsnachrichten ------------------------------------------------ */
 
+/* Steht ueber den Karten und nennt, ueber wie viele Quittungen man blickt.
+   Ohne diese Zeile waere nach dem Zusammenfassen nicht zu sehen, dass hinter
+   einer Karte dreiundvierzig Quittungen stehen. */
+.ack-balance {
+  margin: 0 0 8px;
+  color: var(--brand);
+  font: 700 12px/1.2 var(--font-sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ack-balance strong {
+  color: var(--ink);
+}
+
 /* Der Ablehnungsgrund steht oben im Detailbereich. Anerkennung und
    Ablehnung sind nicht allein an der Farbe zu unterscheiden -- der Zustand
    steht als Wort in der Kopfzeile. */
@@ -1135,6 +1150,75 @@ pre {
 
 .ack-text-label {
   color: var(--muted);
+}
+
+/* Die Nachrichtennummern einer Gruppe. Laeufe stehen als Sprungmarken in der
+   Zeile, nicht als Aufzaehlung darunter -- es sind Zahlen, keine Saetze. */
+.ack-messages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+
+.ack-messages-label {
+  color: var(--muted);
+}
+
+/* Eine Sprungmarke, kein Knopf: sie steht in einer Zeile mit ihrer
+   Beschriftung und darf sie nicht auseinanderziehen. Eigene Klasse statt
+    -- von dessen Regeln bliebe hier ohnehin nichts uebrig. */
+.ack-message {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  font: 600 14px var(--font-sans);
+}
+
+.ack-message:hover {
+  text-decoration: underline;
+}
+
+/* Die zusammengeklappte Gruppe ist eine Karte, die zur Zeile geworden ist --
+   dieselbe Flaeche und Kante, nur ohne Inhalt, solange sie zu ist. */
+.ack-rollup {
+  padding-block: 8px;
+}
+
+.ack-rollup-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--brand-deep);
+  font-size: 15px;
+  cursor: pointer;
+
+  /* Die Standardmarkierung weicht dem eigenen Winkel unten. */
+  list-style: none;
+}
+
+.ack-rollup-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ack-rollup-summary::before {
+  content: '';
+  flex: 0 0 auto;
+  inline-size: 6px;
+  block-size: 6px;
+  border-block-end: 2px solid currentcolor;
+  border-inline-end: 2px solid currentcolor;
+
+  /* Zugeklappt nach rechts, aufgeklappt nach unten. */
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.ack-rollup[open] .ack-rollup-summary::before {
+  transform: rotate(45deg);
 }
 
 /* -- Vorgangskette ------------------------------------------------------- */

@@ -13,6 +13,7 @@ const {
   formatCount,
   formatDate,
   joinSegments,
+  messageRuns,
   parseEdifact,
   parseTimestamp,
   splitByQuery,
@@ -380,5 +381,35 @@ describe('splitByQuery mit mehreren Begriffen', () => {
 
   it('ignoriert Gross- und Kleinschreibung', () => {
     assert.deepEqual(marked('Meier', ['meier']), ['Meier']);
+  });
+});
+
+describe('messageRuns', () => {
+  it('macht aus einer Kette einen Lauf und zaehlt ab eins', () => {
+    // Herein Indizes ab null, heraus Nachrichtennummern ab eins.
+    assert.deepEqual(messageRuns([0, 1, 2]), [{ index: 0, label: '1–3' }]);
+  });
+
+  it('laesst Einzelne einzeln', () => {
+    assert.deepEqual(messageRuns([16, 30]), [
+      { index: 16, label: '17' },
+      { index: 30, label: '31' },
+    ]);
+  });
+
+  it('trennt an der Luecke', () => {
+    assert.deepEqual(messageRuns([0, 1, 2, 6]), [
+      { index: 0, label: '1–3' },
+      { index: 6, label: '7' },
+    ]);
+  });
+
+  it('behaelt den ersten Index eines Laufs als Sprungziel', () => {
+    // Die Beschriftung nennt eine Spanne, das Ziel muss eine Nachricht sein.
+    assert.deepEqual(messageRuns([4, 5, 6, 7]), [{ index: 4, label: '5–8' }]);
+  });
+
+  it('kommt mit einer leeren Liste zurecht', () => {
+    assert.deepEqual(messageRuns([]), []);
   });
 });
