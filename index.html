@@ -10,7 +10,7 @@
     <meta name="color-scheme" content="light" />
     <!-- Von `npm run version:sync` aus package.json geschrieben. Ein Test
          schlaegt an, wenn die beiden auseinanderlaufen. -->
-    <meta name="application-version" content="1.0.19" />
+    <meta name="application-version" content="1.0.20" />
     <meta name="theme-color" content="#00558f" />
     <title>EDIFACT Explorer</title>
     <link
@@ -28,25 +28,34 @@
           <span class="brand-mark" aria-hidden="true"></span>
         </div>
         <h1 class="masthead-title">EDIFACT Explorer</h1>
+        <!-- Zwei Gruppen: links, was die Anwendung betrifft, rechts, was das
+             geladene Dokument betrifft. Getrennt durch einen Strich, innen eng
+             gesetzt -- die Reihe ordnet sich damit nach Zugehoerigkeit statt
+             als gleichmaessige Kette von fuenf Elementen. -->
         <div class="file-control">
-          <label class="visually-hidden" for="themeSelect">Farbschema</label>
-          <select id="themeSelect" class="theme-select">
-            <option value="system">Farbschema: System</option>
-            <option value="light">Farbschema: hell</option>
-            <option value="dark">Farbschema: dunkel</option>
-          </select>
-          <button id="aboutButton" class="link-button" type="button">Über den Viewer</button>
-          <span id="fileName" class="file-name">Keine Datei geladen</span>
-          <button id="fileButton" class="button" type="button">JSON-Datei öffnen</button>
-          <button
-            id="entryModeButton"
-            class="button button-quiet"
-            type="button"
-            aria-controls="entryMode"
-            aria-expanded="false"
-          >
-            Nachricht eingeben
-          </button>
+          <div class="control-group">
+            <label class="visually-hidden" for="themeSelect">Farbschema</label>
+            <select id="themeSelect" class="theme-select">
+              <option value="system">Farbschema: System</option>
+              <option value="light">Farbschema: hell</option>
+              <option value="dark">Farbschema: dunkel</option>
+            </select>
+            <button id="aboutButton" class="link-button" type="button">Über den Viewer</button>
+          </div>
+
+          <div class="control-group">
+            <span id="fileName" class="file-name">Keine Datei geladen</span>
+            <button id="fileButton" class="button" type="button">JSON-Datei öffnen</button>
+            <button
+              id="entryModeButton"
+              class="button button-quiet"
+              type="button"
+              aria-controls="entryMode"
+              aria-expanded="false"
+            >
+              Nachricht eingeben
+            </button>
+          </div>
           <input
             id="fileInput"
             class="visually-hidden"

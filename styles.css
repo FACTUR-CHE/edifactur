@@ -145,6 +145,16 @@
 
   /* -- Abstaende ---------------------------------------------------------- */
   --pad-page: clamp(16px, 3vw, 48px);
+
+  /* -- Bedienelemente ------------------------------------------------------
+   * Eine Zeile traegt eine Hoehe. Vorher hatte jeder Knopf die Hoehe, die
+   * seine Polsterung ergab -- in der Kopfleiste standen dadurch vier
+   * verschiedene nebeneinander. 32px ist das Mass, das Primer und Fluent
+   * fuer Knoepfe in Werkzeug- und Kopfleisten setzen; die kleine Stufe gilt
+   * fuer die dichten Werkzeugzeilen im Detailbereich.
+   */
+  --control-height: 32px;
+  --control-height-small: 26px;
 }
 
 /* -- Dunkles Schema ------------------------------------------------------
@@ -450,8 +460,24 @@ pre {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 18px;
   min-inline-size: 0;
+}
+
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Der Strich trennt die Anwendungseinstellungen vom geladenen Dokument. Er
+   traegt keine Bedeutung, die nicht auch aus dem Abstand hervorginge, und
+   steht deshalb nicht in der Barrierefreiheitsschicht -- er ist Rahmen,
+   kein Element. */
+.control-group + .control-group {
+  padding-inline-start: 18px;
+  border-inline-start: 1px solid var(--line);
 }
 
 /* Der Dateiname ist Fremddaten und kann beliebig lang sein -- er wird
@@ -460,19 +486,30 @@ pre {
   max-inline-size: 24ch;
   overflow: hidden;
   color: var(--muted);
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /* -- Buttons ------------------------------------------------------------- */
 
+/* Die Hoehe kommt aus dem Raster, nicht aus der Polsterung -- sonst haengt
+   sie an der Schriftgroesse und jede Stufe bekommt ihre eigene. Der
+   durchsichtige Rahmen haelt gefuellte und umrandete Knoepfe auf gleicher
+   Hoehe. */
 .button {
-  padding: 10px 14px;
-  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--control-height);
+  padding: 0 14px;
+  border: 1px solid transparent;
   background: var(--control);
   color: var(--control-ink);
-  font: 600 15px var(--font-sans);
-  transition: background 0.15s ease;
+  font: 600 14px var(--font-sans);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .button:hover {
@@ -480,18 +517,26 @@ pre {
   color: var(--control-hover-ink);
 }
 
-.button-compact {
-  padding: 7px 10px;
-  font-size: 13px;
-}
-
+/* Die zweite Stufe, nicht bloss die kleinere. Zwei gefuellte Knoepfe
+   nebeneinander nennen zwei Hauptwege; es gibt aber einen -- die Datei --
+   und daneben die Alternative. Der Rahmen sagt das, die Groesse sagte es
+   nicht. */
 .button-quiet {
-  padding: 8px 12px;
-  font-size: 14px;
+  border-color: var(--line-field);
+  background: transparent;
+  color: var(--brand);
 }
 
+.button-quiet:hover {
+  border-color: var(--control-hover);
+  background: var(--control-hover);
+  color: var(--control-hover-ink);
+}
+
+/* Fuer die dichten Werkzeugzeilen im Detailbereich. */
 .button-small {
-  padding: 5px 9px;
+  min-block-size: var(--control-height-small);
+  padding: 0 9px;
   font-size: 12px;
 }
 
@@ -515,6 +560,35 @@ pre {
 
 .link-button:hover {
   text-decoration: underline;
+}
+
+/* Alles in der Kopfleiste auf ein Mass: gleiche Hoehe, gleiche Schrift.
+   Ausserhalb gilt das nicht -- `.link-button` steht im Detailbereich mitten
+   im Text und darf dort keine Knopfhoehe beanspruchen. */
+.file-control .button,
+.file-control .link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--control-height);
+  padding-block: 0;
+  font-size: 14px;
+}
+
+/* Die native Auswahl zeichnet der Browser selbst; `display` bleibt deshalb
+   unangetastet. Hoehe und Schrift genuegen, um sie einzureihen. */
+.file-control .theme-select {
+  block-size: var(--control-height);
+  padding-block: 0;
+}
+
+/* Die stillen Bedienelemente bekommen im Ueberfahren einen Grund statt einer
+   Unterstreichung: in einer Knopfreihe liest sich der Unterstrich als Link,
+   der Grund als Knopf. Im Detailbereich bleibt es beim Unterstrich. */
+.file-control .link-button:hover,
+.file-control .theme-select:hover {
+  background: var(--surface-highlight);
+  text-decoration: none;
 }
 
 /* -- Meldungen ----------------------------------------------------------- */
