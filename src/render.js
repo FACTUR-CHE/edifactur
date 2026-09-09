@@ -821,6 +821,58 @@
     return messages[Math.min(Math.max(0, activeMessage), messages.length - 1)] ?? null;
   }
 
+  /** Name der Huellgruppen, die keine Nachricht sind, nach ihrem Segment. */
+  const ENVELOPE_NAMES = Object.freeze({ UNB: 'Austauschkopf', UNZ: 'Austauschende' });
+
+  /**
+   * Prueft, ob eine Gruppe eine fachliche Nachricht ist.
+   *
+   * Nur ein UNH-Kopf macht eine Nachricht aus. UNA und UNB umschliessen den
+   * Austausch, UNZ schliesst ihn ab -- sie stehen als eigene Gruppen in der
+   * Ansicht, zaehlen aber nicht als Nachricht.
+   *
+   * @param {object} group
+   * @returns {boolean}
+   */
+  function isMessageGroup(group) {
+    return group.segments.some((segment) => segment.tag === 'UNH');
+  }
+
+  /**
+   * Benennt die Gruppen eines Datensatzes in Anzeigereihenfolge.
+   *
+   * Gezaehlt werden nur die Nachrichten, damit die Nummer der Leiste zu der
+   * Anzahl passt, die der Datensatz nennt. Huellgruppen tragen den Namen
+   * ihres Segments.
+   *
+   * @param {object[]} groups
+   * @returns {string[]}
+   */
+  function groupCaptions(groups) {
+    let counted = 0;
+    return groups.map((group) => {
+      if (isMessageGroup(group)) {
+        counted += 1;
+        return `Nachricht ${counted}: ${group.type}`;
+      }
+
+      const envelope = group.segments.find((segment) => ENVELOPE_NAMES[segment.tag]);
+      return envelope ? ENVELOPE_NAMES[envelope.tag] : group.type;
+    });
+  }
+
+  /**
+   * Benennt eine Gruppe fuer die Ueberschrift ueber ihren Segmenten.
+   *
+   * @param {object} group
+   * @returns {string}
+   */
+  function groupName(group) {
+    if (isMessageGroup(group)) return group.type;
+    const envelope = group.segments.find((segment) => ENVELOPE_NAMES[segment.tag]);
+    return envelope ? ENVELOPE_NAMES[envelope.tag] : group.type;
+  }
+
   /**
    * Benennt eine Nachricht so, dass man sie in der Liste wiederfindet.
    *
@@ -830,7 +882,9 @@
    */
   function messageLabel(record, index) {
     const name = record.source.messageID || record.id;
-    return record.derived.messages.length > 1 ? `${name}, Nachricht ${index + 1}` : name;
+    const { messages } = record.derived;
+    if (messages.length <= 1) return name;
+    return `${name}, ${groupCaptions(messages)[index] ?? `Nachricht ${index + 1}`}`;
   }
 
   /** Zeichen und Wort je Zustand einer Vergleichszeile. */
@@ -977,7 +1031,7 @@
     // Die Formatversion steht nur da, wenn UNH DE 0057 sie nennt. Fehlt sie,
     // entfaellt der Abschnitt -- ein Platzhalter wuerde eine Version suggerieren.
     const heading = [
-      message.type,
+      groupName(message),
       message.header?.formatVersion ? `Formatversion ${message.header.formatVersion}` : null,
       `${ns.formatCount(message.segments.length)} Segmente`,
     ]
@@ -1045,15 +1099,16 @@
 
     if (messages.length === 1) return [section];
 
+    const captions = groupCaptions(messages);
     const bar = tablist(
       messages.map((entry, position) => ({
         value: String(position),
-        label: `Nachricht ${position + 1}: ${entry.type}`,
+        label: captions[position],
       })),
       {
         activeIndex: index,
         name: 'message',
-        label: 'Enthaltene Nachrichten',
+        label: 'Nachrichten und Huellsegmente',
         panelId: MESSAGE_PANEL_ID,
         datasetKey: 'message',
         tabClass: 'message-tab',

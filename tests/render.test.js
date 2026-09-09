@@ -345,6 +345,24 @@ describe('Detailbereich zeichnet die aufbereiteten Inhalte', () => {
     assert.ok(byClass(node, 'segment').length > 0, 'keine Segmente gezeichnet');
   });
 
+  it('benennt Huellgruppen nach ihrem Segment und zaehlt nur die Nachrichten', () => {
+    // UNA und UNB umschliessen den Austausch, UNZ schliesst ihn ab. Als
+    // "Nachricht 1" und "Nachricht 3" gelesen zu werden, waere fachlich falsch.
+    const payload =
+      "UNA:+.? 'UNB+UNOC:3+1:502+2:502+260224:1345+1'" + "UNH+1+UTILMD:D:11A:UN'UNT+2+1'UNZ+1+1'";
+    const node = detail(recordOf(payload));
+
+    assert.deepEqual(byClass(node, 'message-tab').map(textOf), [
+      'Austauschkopf',
+      'Nachricht 1: UTILMD',
+      'Austauschende',
+    ]);
+    assert.equal(
+      textOf(byClass(node, 'section-head')[0].children[0]),
+      'Austauschkopf · 2 Segmente',
+    );
+  });
+
   it('bietet den CSV-Export der aktiven Nachricht an', () => {
     const payload = "UNH+1+UTILMD:D:11A:UN'UNT+2+1'UNH+2+APERAK:D:07B:UN'UNT+2+2'";
     const node = detail(recordOf(payload), { activeMessage: 1 });
