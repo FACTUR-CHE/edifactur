@@ -143,7 +143,7 @@ describe('segmentCsv', () => {
       },
     },
   ]);
-  const csv = segmentCsv(record.derived.messages[0], 1);
+  const csv = segmentCsv(record.derived.messages[0], 'Nachricht 1: UTILMD');
   const rows = lines(csv).map((line) => line.split(';'));
 
   it('fuehrt Tag, Position, Datenelement, Bezeichnung, Wert und Klartext', () => {
@@ -179,13 +179,20 @@ describe('segmentCsv', () => {
     assert.equal(dtm.find((row) => row[4] === '2380')[7], '01.08.2026');
   });
 
-  it('nennt die Nachrichtennummer in jeder Zeile', () => {
-    const second = segmentCsv(record.derived.messages[0], 2);
+  it('nennt die Beschriftung der Gruppe in jeder Zeile', () => {
+    // Huellsegmente tragen keine Nummer, sondern ihren Namen -- eine "1"
+    // ueber dem Austauschkopf waere im Tabellenblatt nicht aufzuloesen.
+    const envelope = segmentCsv(record.derived.messages[0], 'Austauschkopf');
 
     assert.ok(
-      lines(second)
+      lines(envelope)
         .slice(1)
-        .every((line) => line.startsWith('2;')),
+        .every((line) => line.startsWith('Austauschkopf;')),
+    );
+    assert.ok(
+      lines(csv)
+        .slice(1)
+        .every((line) => line.startsWith('Nachricht 1: UTILMD;')),
     );
   });
 });

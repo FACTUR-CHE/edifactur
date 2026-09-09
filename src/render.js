@@ -1254,5 +1254,6 @@
   ns.renderList = renderList;
   ns.renderDetail = renderDetail;
   ns.messageLabel = messageLabel;
+  ns.groupCaptions = groupCaptions;
   ns.currentMessage = currentMessage;
 })((globalThis.EdifactExplorer ??= {}));

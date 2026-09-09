@@ -148,7 +148,7 @@
    * @param {number} messageNumber Nummer der Nachricht, ab 1.
    * @returns {unknown[][]}
    */
-  function segmentRows(segment, messageNumber) {
+  function segmentRows(segment, messageName) {
     const label = ns.segmentLabel(segment.tag);
 
     return segment.components.flatMap((components, element) =>
@@ -159,7 +159,7 @@
         const meaning = ns.valueMeaning(definition, value, components, component);
 
         return [
-          messageNumber,
+          messageName,
           segment.tag,
           label,
           position,
@@ -181,11 +181,12 @@
    * Excel auf, wenn niemand mehr weiss, warum.
    *
    * @param {object} message Eine Nachricht aus `derived.messages`.
-   * @param {number} messageNumber Nummer der Nachricht, ab 1.
+   * @param {string} messageName Beschriftung der Gruppe, wie sie die Ansicht
+   *   nennt -- "Nachricht 1: UTILMD" oder bei Huellsegmenten "Austauschkopf".
    * @returns {string}
    */
-  function segmentCsv(message, messageNumber = 1) {
-    const rows = message.segments.flatMap((segment) => segmentRows(segment, messageNumber));
+  function segmentCsv(message, messageName = 'Nachricht 1') {
+    const rows = message.segments.flatMap((segment) => segmentRows(segment, messageName));
     return toCsv([[...SEGMENT_COLUMNS], ...rows]);
   }
 

@@ -642,8 +642,12 @@
     const message = record?.derived.messages[index];
     if (!message) return;
 
-    const subject = `segmente-${record.source.messageID || record.id}-${index + 1}`;
-    exportCsv(ns.segmentCsv(message, index + 1), subject, `Segmente der Nachricht ${index + 1}`);
+    // Dieselbe Beschriftung wie in der Reiterleiste: eine Huellgruppe ist
+    // keine Nachricht, und ihre Nummer waere im Tabellenblatt nicht mehr
+    // aufzuloesen.
+    const caption = ns.groupCaptions(record.derived.messages)[index] ?? `Nachricht ${index + 1}`;
+    const subject = `segmente-${record.source.messageID || record.id}-${caption}`;
+    exportCsv(ns.segmentCsv(message, caption), subject, `Segmente: ${caption}`);
   }
 
   /**
