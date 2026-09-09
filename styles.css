@@ -912,7 +912,7 @@ pre {
 .record {
   display: block;
   inline-size: 100%;
-  block-size: var(--record-height, 112px);
+  block-size: var(--record-height, 120px);
   padding: 14px 16px;
   border: 0;
   border-block-end: 1px solid var(--line-soft);
@@ -961,17 +961,44 @@ pre {
   color: var(--brand);
 }
 
-/* Die fachlichen Kennungen aus der Nutzlast. Sie stehen unter den
-   Umschlagdaten, weil man nach ihnen sucht, sie aber den Eintrag nicht
+/* Die Marken und die fachlichen Kennungen aus der Nutzlast. Sie stehen unter
+   den Umschlagdaten, weil man nach ihnen sucht, sie aber den Eintrag nicht
    anfuehren sollen -- auf einer Zeile, weil die Zeilenhoehe fest ist und
-   umbrechende Kennungen unten abgeschnitten wuerden statt zu fliessen. */
+   umbrechende Kennungen unten abgeschnitten wuerden statt zu fliessen.
+   Reicht die Breite nicht, weichen die Kennungen am Ende: eine Marke ist der
+   Grund, eine Karte zu oeffnen, eine Kennung nur der Weg dorthin. */
 .record-tags {
   display: flex;
+  align-items: center;
   gap: 3px 12px;
   margin-block-start: 6px;
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* Marken der Trefferliste. Sie tragen ihre Farbe selbst und stehen auf der
+   Zeile der Kennungen -- eine eigene Zeile haette die feste Zeilenhoehe
+   gesprengt. */
+.record-flag {
+  flex: none;
+  padding: 3px 6px;
+  border-inline-start: 3px solid currentcolor;
+  font: 700 11px var(--font-sans);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Eine Ablehnung ist ein Befund, keine Struktureigenschaft: sie traegt die
+   Warnfarbe der Oberflaeche, die Sammelnachricht daneben bleibt sachlich. */
+.record-flag-rejected {
+  background: var(--danger-surface);
+  color: var(--danger-ink);
+}
+
+.record-flag-aggregate {
+  background: var(--mark-surface);
+  color: var(--brand-deep);
 }
 
 .record-tag-key {

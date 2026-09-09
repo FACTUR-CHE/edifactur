@@ -146,6 +146,64 @@
   }
 
   /**
+   * Beschriftet die Ablehnungen eines Datensatzes.
+   *
+   * Eine einzelne Quittung ist die Ablehnung; eine Sammelnachricht enthaelt
+   * sie. Die Zahl daneben sagt, ob alles oder nur ein Teil abgelehnt wurde --
+   * ohne sie muesste man die Karte oeffnen, um das zu erfahren.
+   *
+   * @param {number} rejected Abgelehnte Quittungen.
+   * @param {number} total    Quittungen insgesamt.
+   * @returns {string}
+   */
+  function rejectionLabel(rejected, total) {
+    return total === 1
+      ? 'Abgelehnt'
+      : `${ns.formatCount(rejected)} von ${ns.formatCount(total)} abgelehnt`;
+  }
+
+  /**
+   * Marken, die einen Eintrag einordnen, ohne ihn zu oeffnen.
+   *
+   * Sie stehen vor den Kennungen auf derselben Zeile: die Zeilenhoehe der
+   * Liste ist fest, und eine eigene Zeile je Marke wuerde unten abgeschnitten.
+   * Reicht der Platz nicht, weichen die Kennungen -- eine Ablehnung ist der
+   * Grund, eine Karte zu oeffnen, eine Kennung nur der Weg dorthin.
+   *
+   * @param {object} record
+   * @returns {HTMLElement[]}
+   */
+  function recordFlags(record) {
+    const { acknowledgements = [], rejectedCount = 0, messageCount } = record.derived;
+    const flags = [];
+
+    if (rejectedCount > 0) {
+      flags.push(
+        ns.el('span', {
+          class: 'record-flag record-flag-rejected',
+          title:
+            acknowledgements.length === 1
+              ? 'Die Quittung meldet eine Ablehnung.'
+              : `${ns.formatCount(rejectedCount)} von ${ns.formatCount(acknowledgements.length)} Quittungen melden eine Ablehnung.`,
+          text: rejectionLabel(rejectedCount, acknowledgements.length),
+        }),
+      );
+    }
+
+    if (messageCount > 1) {
+      flags.push(
+        ns.el('span', {
+          class: 'record-flag record-flag-aggregate',
+          title: `Sammelnachricht mit ${ns.formatCount(messageCount)} EDIFACT-Nachrichten.`,
+          text: `Sammelnachricht · ${ns.formatCount(messageCount)}`,
+        }),
+      );
+    }
+
+    return flags;
+  }
+
+  /**
    * @param {object} record
    * @param {string} query
    * @param {boolean} isSelected
@@ -174,22 +232,15 @@
       ns.highlighted(source.communicationPartnerID || 'Kein Partner', query),
       ' · ',
       ns.formatDate(source.transferTimestamp),
-      derived.messageCount > 1 ? ns.el('br') : null,
-      derived.messageCount > 1
-        ? ns.el('span', {
-            class: 'aggregate-badge',
-            text: `Sammelnachricht · ${ns.formatCount(derived.messageCount)} EDIFACT-Nachrichten`,
-          })
-        : null,
     ]);
 
-    const identifiers =
-      derived.identifiers.length > 0
-        ? ns.el(
-            'span',
-            { class: 'record-tags' },
-            derived.identifiers.map((identifier) => identifierTag(identifier, query)),
-          )
+    const flags = recordFlags(record);
+    const marks =
+      flags.length > 0 || derived.identifiers.length > 0
+        ? ns.el('span', { class: 'record-tags' }, [
+            ...flags,
+            ...derived.identifiers.map((identifier) => identifierTag(identifier, query)),
+          ])
         : null;
 
     return ns.el(
@@ -202,7 +253,7 @@
         'aria-setsize': String(position.total),
         'aria-posinset': String(position.index + 1),
       },
-      [top, meta, identifiers],
+      [top, meta, marks],
     );
   }
 

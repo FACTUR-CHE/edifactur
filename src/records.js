@@ -399,6 +399,17 @@
     const messages = ns.parseEdifact(payload);
     const messageId = typeof source.messageID === 'string' ? source.messageID.trim() : '';
 
+    // Die Nachrichtennummer kommt mit: bei einer Sammelnachricht ist sie
+    // das einzige, was eine Quittung von der naechsten unterscheidet.
+    // Vorher fiel sie durch `filter` weg, und eine Ablehnung liess sich
+    // keiner der enthaltenen Nachrichten zuordnen.
+    const acknowledgements = messages
+      .map((message, index) => {
+        const summary = ns.readAcknowledgement(message);
+        return summary === null ? null : { ...summary, messageIndex: index };
+      })
+      .filter(Boolean);
+
     return {
       id: typeof source.ID === 'string' && source.ID.length > 0 ? source.ID : fallbackId,
       source,
@@ -420,16 +431,11 @@
         // Gilt fuer geladene und fuer eingeklebte Nachrichten gleichermassen,
         // weil createRecordFromEdifact ueber diese Funktion laeuft.
         interchange: ns.readInterchangeHeader(messages),
-        // Die Nachrichtennummer kommt mit: bei einer Sammelnachricht ist sie
-        // das einzige, was eine Quittung von der naechsten unterscheidet.
-        // Vorher fiel sie durch `filter` weg, und eine Ablehnung liess sich
-        // keiner der enthaltenen Nachrichten zuordnen.
-        acknowledgements: messages
-          .map((message, index) => {
-            const summary = ns.readAcknowledgement(message);
-            return summary === null ? null : { ...summary, messageIndex: index };
-          })
-          .filter(Boolean),
+        acknowledgements,
+        // Einmal beim Aufbau, nicht bei jedem Zeichnen: die Liste zeichnet
+        // ihre Marke bei jedem Rollen neu. Eine Ablehnung ist der Grund, eine
+        // Karte ueberhaupt zu oeffnen -- sie muss schon in der Liste stehen.
+        rejectedCount: acknowledgements.filter((summary) => summary.rejected).length,
         // Einmal beim Aufbau, nicht bei jedem Zeichnen der Liste.
         identifiers: readIdentifiers(messages, messageId),
         findings: ns.collectFindings(messages),

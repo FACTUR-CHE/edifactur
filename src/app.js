@@ -21,8 +21,12 @@
    * sich aus der Rollposition der sichtbare Ausschnitt bestimmen, ohne alle
    * Zeilen zu zeichnen und zu messen. Der Wert wird als `--record-height` an
    * die Liste gegeben, damit CSS und Rechnung nicht auseinanderlaufen.
+   *
+   * Er fasst vier Zeilen: Kennung mit Format, zwei Zeilen Umschlagdaten und
+   * die Zeile aus Marken und Kennungen. Wer der Karte etwas hinzufuegt, muss
+   * ihn nachziehen -- was nicht hineinpasst, wird unten abgeschnitten.
    */
-  const RECORD_HEIGHT = 112;
+  const RECORD_HEIGHT = 120;
 
   /** Schluessel der gespeicherten Farbschema-Wahl. */
   const THEME_KEY = 'edifact-explorer.theme';

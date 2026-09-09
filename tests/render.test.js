@@ -129,6 +129,35 @@ describe('Rauchtest ueber die Beispieldatei', () => {
     assert.equal(byClass(node, 'record-list')[0].attributes.style, 'transform: translateY(500px)');
   });
 
+  it('markiert Ablehnungen und Sammelnachrichten in der Liste', () => {
+    // Ohne die Marke muesste man jede Karte oeffnen, um zu sehen, ob eine
+    // Quittung etwas abgelehnt hat.
+    const list = normalizeRecords([
+      { ID: 'einzeln', payload: { payload: "UNH+1+APERAK:D:07B:UN'ERC+Z29'UNT+3+1'" } },
+      {
+        ID: 'sammel',
+        payload: {
+          payload:
+            "UNH+1+APERAK:D:07B:UN'ERC+Z29'UNT+3+1'" +
+            "UNH+2+APERAK:D:07B:UN'UNT+2+2'" +
+            "UNH+3+APERAK:D:07B:UN'UNT+2+3'",
+        },
+      },
+      { ID: 'ohne', payload: { payload: "UNH+1+UTILMD:D:11A:UN'UNT+2+1'" } },
+    ]);
+
+    const node = container();
+    renderList(node, { records: list, selectedId: null, query: '', window: wholeList(3) });
+    const flagsOf = (index) =>
+      nodesOf(byClass(node, 'record')[index])
+        .filter((entry) => String(entry.className).startsWith('record-flag'))
+        .map(textOf);
+
+    assert.deepEqual(flagsOf(0), ['Abgelehnt']);
+    assert.deepEqual(flagsOf(1), ['1 von 3 abgelehnt', 'Sammelnachricht · 3']);
+    assert.deepEqual(flagsOf(2), []);
+  });
+
   it('nennt jedem Eintrag seinen Platz in der ganzen Liste', () => {
     // Sonst meldete eine Vorlesesoftware "1 von 3" statt "6 von 15".
     const node = container();

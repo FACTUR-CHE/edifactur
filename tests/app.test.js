@@ -236,7 +236,7 @@ describe('Virtualisierte Liste', () => {
   });
 
   it('zeigt beim Rollen die Eintraege weiter unten', () => {
-    scrollTo(112 * 10);
+    scrollTo(120 * 10);
 
     const shown = records().map((entry) => entry.dataset.id);
     assert.ok(shown.includes('demo-utilmd-001'), shown.join(', '));

@@ -99,6 +99,21 @@ describe('normalizeRecord', () => {
     assert.equal(record.derived.messageCount, 2);
   });
 
+  it('zaehlt die abgelehnten Quittungen fuer die Liste', () => {
+    const payload =
+      "UNH+1+APERAK:D:07B:UN'ERC+Z29'UNT+3+1'" +
+      "UNH+2+APERAK:D:07B:UN'UNT+2+2'" +
+      "UNH+3+UTILMD:D:11A:UN'UNT+2+3'";
+    const { acknowledgements, rejectedCount } = normalizeRecord(
+      source({ payload: { payload } }),
+      'fallback',
+    ).derived;
+
+    // Die UTILMD ist keine Quittung und zaehlt in keiner der beiden Zahlen.
+    assert.equal(acknowledgements.length, 2);
+    assert.equal(rejectedCount, 1);
+  });
+
   it('nimmt Metadaten und Nutzlast in den Volltextindex auf', () => {
     const { searchIndex } = normalizeRecord(source(), 'fallback').derived;
 
